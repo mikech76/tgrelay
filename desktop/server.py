@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 
 import socks5_to_http
 from mtproto_handler import MTProtoHandler
@@ -14,9 +13,8 @@ handler = MTProtoHandler(secret, proxy_pool_instance)
 
 
 def mtproto_port():
-    """Порт MTProto: MTPROTO_PORT > PROXY_PORT из .env > 55055."""
-    return int(os.environ.get("MTPROTO_PORT")
-               or config.get("PROXY_PORT", "55055"))
+    """Порт MTProto берётся из .env (PROXY_PORT)."""
+    return int(config.get("PROXY_PORT", "55055"))
 
 
 async def start_server():

@@ -109,14 +109,11 @@ def load_env(path):
 
 
 def load_config():
+    """Только .env. Никаких переменных окружения — всё в одном файле."""
     here = os.path.dirname(os.path.abspath(__file__))
     cfg = dict(DEFAULTS)
     for name in (".env", os.path.join(here, ".env")):
         cfg.update(load_env(name))
-    cfg["PROXIES"] = os.environ.get("PROXIES", cfg.get("PROXIES", ""))
-    for key in ("SOCKS_HOST", "SOCKS_PORT", "TEST_TARGET",
-                "AUTH_BYPASS", "SOCKS_USER", "SOCKS_PASS"):
-        cfg[key] = os.environ.get(key, cfg.get(key, DEFAULTS.get(key, "")))
     return cfg
 
 

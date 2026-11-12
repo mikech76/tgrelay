@@ -62,32 +62,46 @@ journalctl -u tgrelay -f
 ./venv/bin/python run_headless.py
 ```
 
-## Настройки (`.env`)
+## Настройки: один файл `.env`
+
+Всё в одном месте — прокси, порты, внешнее имя. Переменные окружения не нужны.
 
 ```ini
-# MTProto
-PROXY_PORT=55055
-SECRET=                 # 32 hex-символа
+# 1. Прокси: user:pass@host:port;host:port;...
+PROXIES=
 
-# SOCKS5
-SOCKS_HOST=0.0.0.0
-SOCKS_PORT=55056
-AUTH_BYPASS=127.0.0.1/32,192.168.0.0/24   # кому без пароля
-SOCKS_USER=             # пароль для всех остальных
+# 2. Порты
+PROXY_PORT=55055          # MTProto
+SOCKS_PORT=55056          # SOCKS5
+SOCKS_HOST=0.0.0.0        # 127.0.0.1 — только этот ПК, 0.0.0.0 — и локальная сеть
+
+# 3. Секрет MTProto (32 hex-символа)
+SECRET=
+
+# 4. Внешнее имя — если пробросили порт на роутере
+EXTERNAL_HOST=            # например yourname.duckdns.org
+
+# 5. Доступ к SOCKS5
+AUTH_BYPASS=127.0.0.1/32,192.168.0.0/24
+SOCKS_USER=
 SOCKS_PASS=
-
-# Пул прокси
-PROXIES=user:pass@1.2.3.4:9405;5.6.7.8:8080
-
-# Необязательно
-EXTERNAL_HOST=          # DDNS-имя для доступа из других сетей
 ```
 
-Порты можно переопределить и переменными окружения:
+| Ключ | Что задаёт |
+|---|---|
+| `PROXIES` | список HTTP CONNECT-прокси |
+| `PROXY_PORT` | порт MTProto-прокси (по умолчанию 55055) |
+| `SOCKS_PORT` | порт SOCKS5 (по умолчанию 55056) |
+| `SOCKS_HOST` | адрес прослушивания SOCKS5 |
+| `SECRET` | секрет для ссылки MTProto |
+| `EXTERNAL_HOST` | DDNS-имя или внешний IP для ссылок «снаружи» |
+| `AUTH_BYPASS` | сети, которым SOCKS5 не требует пароля |
+| `SOCKS_USER` / `SOCKS_PASS` | логин и пароль SOCKS5 для всех остальных |
 
-```bash
-MTPROTO_PORT=56055 SOCKS_PORT=56056 python run_headless.py
-```
+После изменения `.env` перезапустите:
+
+- Windows: закрыть приложение и запустить `start.cmd` снова;
+- Linux: `systemctl restart tgrelay`.
 
 ## Подключение Telegram
 
