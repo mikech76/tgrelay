@@ -1,0 +1,21 @@
+# сборка
+build/
+*.apk
+*.aab
+
+# ключи и подписи
+*.keystore
+*.jks
+
+# локальные списки прокси (не публиковать!)
+app/assets/default_proxies.txt
+
+# IDE
+.idea/
+*.iml
+local.properties
+.gradle/
+
+# прочее
+*.log
+.DS_Store
