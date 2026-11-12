@@ -92,9 +92,34 @@ def detect_lan_ip():
 # конфиг
 # --------------------------------------------------------------------------
 
+def _strip_comment(value):
+    """Убирает комментарий в конце строки: 'текст # пояснение' -> 'текст'.
+
+    Решётка внутри слова (x#y) и внутри кавычек комментарием не считается.
+    """
+    quote = None
+    for i, ch in enumerate(value):
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == '#' and i > 0 and value[i - 1] in (' ', '\t'):
+            return value[:i].rstrip()
+    return value.strip()
+
+
 def load_env(path):
-    """Минимальный парсер .env — чтобы на Termux не тащить python-dotenv."""
+    """Парсер .env.
+
+    Понимает:
+      KEY=value
+      KEY=value   # комментарий в конце строки
+      # целая строка-комментарий
+      PROXY=...   (несколько строк — список прокси, по одному на строку)
+    """
     cfg = {}
+    proxies = []
     try:
         with open(path, "r", encoding="utf-8-sig") as f:
             for line in f:
@@ -102,9 +127,18 @@ def load_env(path):
                 if not line or line.startswith("#") or "=" not in line:
                     continue
                 key, val = line.split("=", 1)
-                cfg[key.strip()] = val.strip().strip('"').strip("'")
+                key = key.strip()
+                val = _strip_comment(val.strip()).strip('"').strip("'")
+                if key == "PROXY":
+                    if val:
+                        proxies.append(val)
+                else:
+                    cfg[key] = val
     except FileNotFoundError:
         pass
+    if proxies:
+        base = cfg.get("PROXIES", "").strip()
+        cfg["PROXIES"] = ";".join([base] + proxies) if base else ";".join(proxies)
     return cfg
 
 
@@ -142,10 +176,17 @@ class Proxy:
 
 
 def parse_proxies(raw):
-    """user:pass@host:port;host:port;..."""
+    """user:pass@host:port;host:port;...
+
+    Комментарии: строки и элементы, начинающиеся с #, пропускаются,
+    хвостовой комментарий после пробела тоже отбрасывается.
+    """
     result = []
     for item in raw.replace("\n", ";").split(";"):
         item = item.strip()
+        if not item or item.startswith("#"):
+            continue
+        item = re.split(r"\s+#", item)[0].strip()
         if not item:
             continue
         m = re.match(r"^(.+?):(.+?)@\[?([0-9a-fA-F:.]+)\]?:(\d+)$", item)

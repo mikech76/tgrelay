@@ -1,13 +1,75 @@
+import logging
+import os
 import random
 import re
 import socket
 import threading
 import time
-import logging
+
 from dotenv import dotenv_values
 
-config = dotenv_values()
 logger = logging.getLogger(__name__)
+
+def _env_path():
+    here = os.path.dirname(os.path.abspath(__file__))
+    for path in (os.path.join(os.getcwd(), '.env'), os.path.join(here, '.env')):
+        if os.path.exists(path):
+            return path
+    return os.path.join(os.getcwd(), '.env')
+
+ENV_PATH = _env_path()
+config = dotenv_values(ENV_PATH)
+
+
+def save_env_value(key, value):
+    """Записывает KEY=value в .env, сохраняя комментарии и остальные строки."""
+    lines = []
+    try:
+        with open(ENV_PATH, 'r', encoding='utf-8') as f:
+            lines = f.read().splitlines()
+    except FileNotFoundError:
+        pass
+
+    found = False
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#') or '=' not in stripped:
+            continue
+        if stripped.split('=', 1)[0].strip() == key:
+            lines[i] = f"{key}={value}"
+            found = True
+            break
+    if not found:
+        lines.append(f"{key}={value}")
+
+    with open(ENV_PATH, 'w', encoding='utf-8') as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def _iter_env(path):
+    """Пара КЛЮЧ=значение из .env, без комментариев. Понимает повторы ключей."""
+    try:
+        with open(path, 'r', encoding='utf-8-sig') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                key, val = line.split('=', 1)
+                val = re.split(r'\s+#', val)[0].strip().strip('"').strip("'")
+                yield key.strip(), val
+    except FileNotFoundError:
+        pass
+
+
+def proxy_raw():
+    """Список прокси: PROXIES=... одной строкой и/или строки PROXY=..."""
+    parts = []
+    if config.get('PROXIES'):
+        parts.append(config['PROXIES'])
+    for key, val in _iter_env(ENV_PATH):
+        if key == 'PROXY' and val:
+            parts.append(val)
+    return ';'.join(parts)
 
 
 class Proxy:
@@ -58,8 +120,17 @@ class ProxyPool:
         self._start_health_check()
 
     def _load(self):
-        raw = config.get('PROXIES', '')
-        for p in raw.split(';'):
+        raw = proxy_raw()
+        # убираем комментарии: и целые строки, и "хвост" после пробела
+        cleaned = []
+        for item in raw.replace("\n", ";").split(";"):
+            item = item.strip()
+            if not item or item.startswith("#"):
+                continue
+            item = re.split(r"\s+#", item)[0].strip()
+            if item:
+                cleaned.append(item)
+        for p in cleaned:
             p = p.strip()
             if not p:
                 continue
@@ -153,12 +224,39 @@ def load_telegram_hosts():
 
 
 def load_secret():
-    s = config.get('SECRET', '')
-    if not s:
-        import secrets
-        s = secrets.token_hex(16)
-    s = s.replace(' ', '').replace('-', '')
-    return bytes.fromhex(s)
+    """Секрет MTProto: берём из .env, а если пустой/битый — предлагаем создать."""
+    raw = (config.get('SECRET') or '').replace(' ', '').replace('-', '')
+    valid = bool(re.fullmatch(r'[0-9a-fA-F]{32,64}', raw)) and len(raw) % 2 == 0
+    if valid:
+        return bytes.fromhex(raw)
+
+    import secrets as _secrets
+    import sys
+
+    answer = ''
+    if sys.stdin is not None and sys.stdin.isatty():
+        print()
+        print("В .env не задан SECRET для MTProto-прокси.")
+        try:
+            answer = input("Сгенерировать новый ключ? [Y/n]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            answer = ''
+        if answer in ('n', 'no', 'н', 'нет'):
+            print("Хорошо. Впишите свой SECRET в .env и запустите снова.")
+            print("Сгенерировать вручную: "
+                  "python -c \"import secrets; print(secrets.token_hex(16))\"")
+            raise SystemExit(1)
+
+    raw = _secrets.token_hex(16)
+    try:
+        save_env_value('SECRET', raw)
+        logger.info("SECRET сгенерирован и записан в .env")
+        print(f"SECRET сгенерирован и записан в .env: {raw}")
+    except OSError as e:
+        logger.warning("SECRET сгенерирован, но записать в .env не удалось: %s", e)
+        print(f"SECRET сгенерирован (не сохранён): {raw}")
+    config['SECRET'] = raw
+    return bytes.fromhex(raw)
 
 
 def get_external_ip():

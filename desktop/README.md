@@ -1,54 +1,56 @@
-# tgrelay для компьютера (Windows / Linux)
+# tgrelay for desktop (Windows / Linux)
 
-Тот же принцип, что и в Android-версии, но для десктопа: один процесс поднимает
-**два прокси одновременно**, оба ходят через ваш пул HTTP CONNECT-прокси.
+The same idea as the Android app, but for a computer: one process starts
+**two proxies at once**, both using your pool of HTTP CONNECT proxies.
 
-| Тип | Порт по умолчанию | Кому |
+| Type | Default port | Used by |
 |---|---|---|
-| **MTProto** | 55055 | Telegram (десктоп и телефон) — тип «MTProto» с секретом |
-| **SOCKS5** | 55056 | Telegram — тип «SOCKS5» (без секрета, с логином/паролем) |
+| **MTProto** | 55055 | Telegram (desktop and phone) — proxy type "MTProto" with a secret |
+| **SOCKS5** | 55056 | Telegram — proxy type "SOCKS5" (no secret, optional login/password) |
 
 ```
 Telegram --> [MTProto 55055] \
-                              --> пул HTTP CONNECT --> DC Telegram
+                              --> HTTP CONNECT pool --> Telegram DC
 Telegram --> [SOCKS5 55056]  /
 ```
 
-MTProto-часть расшифровывает handshake (так устроен протокол: клиент шифрует
-секретом). SOCKS5-часть не расшифровывает ничего — передаёт только адрес и порт.
+The MTProto part decrypts the handshake (the protocol requires it: the client
+encrypts with the secret). The SOCKS5 part decrypts nothing — it only relays
+address and port.
 
-## Windows: быстрый старт
+**Русская версия: [README.ru.md](README.ru.md)**
 
-1. Установите Python 3 с <https://python.org> (галочка «Add python.exe to PATH»).
-2. Скопируйте папку `desktop` куда удобно.
-3. Запустите `start.cmd` двойным кликом.
-4. При первом запуске откроется `.env` — впишите:
-   - `SECRET` — 32 hex-символа, сгенерировать:
-     ```
-     python -c "import secrets; print(secrets.token_hex(16))"
-     ```
-   - `PROXIES` — ваши прокси, формат `user:pass@host:port` через `;`
-5. Сохраните `.env`, запустите `start.cmd` снова.
-6. В трее появится иконка. Правый клик:
-   - **Copy MTProto link** — ссылка для Telegram;
-   - **Copy SOCKS link (Wi-Fi)** — для устройств в той же сети;
-   - **Copy SOCKS link (моб. сеть)** — ссылка с внешним адресом (см. ниже);
-   - **QR** — то же самое в виде QR-кода.
+## Windows: quick start
 
-Автозапуск: положите ярлык на `run.pyw` в папку автозагрузки
+1. Install Python 3 from <https://python.org> (check "Add python.exe to PATH").
+2. Copy the `desktop` folder anywhere.
+3. Double-click `start.cmd`.
+4. On the first run it creates `.env` and opens it in Notepad. Fill in:
+   - `PROXY=` lines — your HTTP proxies, one per line;
+   - leave `SECRET` empty — the program will offer to generate it.
+5. Save, run `start.cmd` again.
+
+A tray icon appears. Right click it:
+
+- **Copy MTProto link** — link for Telegram;
+- **Copy SOCKS link (Wi-Fi)** — for devices in the same network;
+- **Copy SOCKS link (моб. сеть)** — link with the external name (see below);
+- **QR** — the same as a QR code.
+
+Autostart: put a shortcut to `run.pyw` into the Startup folder
 (`Win+R` → `shell:startup`).
 
-## Linux: установка
+## Linux: installation
 
 ```bash
 cd desktop
 chmod +x install-linux.sh
-./install-linux.sh        # создаст venv, поставит зависимости, спросит .env
-nano .env                 # SECRET и PROXIES
-./install-linux.sh        # второй запуск установит systemd-сервис
+./install-linux.sh        # creates venv, installs deps, asks for .env
+nano .env                 # proxies + secret
+./install-linux.sh        # second run installs the systemd service
 ```
 
-Управление:
+Manage it:
 
 ```bash
 systemctl status tgrelay
@@ -56,121 +58,158 @@ systemctl restart tgrelay
 journalctl -u tgrelay -f
 ```
 
-Без systemd можно запустить вручную:
+Run manually without systemd:
 
 ```bash
 ./venv/bin/python run_headless.py
 ```
 
-## Настройки: один файл `.env`
+## Settings: one `.env` file
 
-Всё в одном месте — прокси, порты, внешнее имя. Переменные окружения не нужны.
+Everything is in one file — proxies, ports, external name. No environment variables.
 
 ```ini
-# 1. Прокси: user:pass@host:port;host:port;...
-PROXIES=
+# 1. PROXIES (one per line)
+PROXY=user:password@1.2.3.4:9405     # primary
+PROXY=user:password@5.6.7.8:9829     # backup
+# PROXY=9.9.9.9:8080                 # disabled
 
-# 2. Порты
-PROXY_PORT=55055          # MTProto
-SOCKS_PORT=55056          # SOCKS5
-SOCKS_HOST=0.0.0.0        # 127.0.0.1 — только этот ПК, 0.0.0.0 — и локальная сеть
+# 2. PORTS
+PROXY_PORT=55055                     # MTProto
+SOCKS_PORT=55056                     # SOCKS5
+SOCKS_HOST=0.0.0.0                   # 127.0.0.1 = this PC only
 
-# 3. Секрет MTProto (32 hex-символа)
-SECRET=
+# 3. MTProto SECRET
+SECRET=                              # empty = generated on first run
 
-# 4. Внешнее имя — если пробросили порт на роутере
-EXTERNAL_HOST=            # например yourname.duckdns.org
+# 4. EXTERNAL NAME (only if you forwarded the port)
+EXTERNAL_HOST=                       # e.g. yourname.duckdns.org
 
-# 5. Доступ к SOCKS5
+# 5. SOCKS5 ACCESS
 AUTH_BYPASS=127.0.0.1/32,192.168.0.0/24
 SOCKS_USER=
 SOCKS_PASS=
 ```
 
-| Ключ | Что задаёт |
+| Key | Meaning |
 |---|---|
-| `PROXIES` | список HTTP CONNECT-прокси |
-| `PROXY_PORT` | порт MTProto-прокси (по умолчанию 55055) |
-| `SOCKS_PORT` | порт SOCKS5 (по умолчанию 55056) |
-| `SOCKS_HOST` | адрес прослушивания SOCKS5 |
-| `SECRET` | секрет для ссылки MTProto |
-| `EXTERNAL_HOST` | DDNS-имя или внешний IP для ссылок «снаружи» |
-| `AUTH_BYPASS` | сети, которым SOCKS5 не требует пароля |
-| `SOCKS_USER` / `SOCKS_PASS` | логин и пароль SOCKS5 для всех остальных |
+| `PROXY` | one HTTP CONNECT proxy per line (`login:password@host:port` or `host:port`) |
+| `PROXY_PORT` | MTProto port (default 55055) |
+| `SOCKS_PORT` | SOCKS5 port (default 55056) |
+| `SOCKS_HOST` | SOCKS5 listen address |
+| `SECRET` | MTProto secret; if empty, it is generated and written here |
+| `EXTERNAL_HOST` | DDNS name or external IP used in links |
+| `AUTH_BYPASS` | networks allowed to use SOCKS5 without a password |
+| `SOCKS_USER` / `SOCKS_PASS` | login/password for everyone else |
 
-После изменения `.env` перезапустите:
+The old one-line format is still supported:
+`PROXIES=user:pass@1.2.3.4:9405;5.6.7.8:8080`.
 
-- Windows: закрыть приложение и запустить `start.cmd` снова;
-- Linux: `systemctl restart tgrelay`.
+### Comments in `.env`
 
-## Подключение Telegram
+```ini
+# a whole line is a comment
+SECRET=9d4e215aeba83fe52b0764a4d1e5bdd3   # trailing comment is ignored
 
-**Компьютер (Telegram Desktop):**
+PROXY=user:pass@1.2.3.4:9405        # this one is enabled
+# PROXY=user:pass@9.9.9.9:1234      # this one is disabled
+```
+
+If you keep several proxies in a single `PROXIES=` line, disable one with `#`
+immediately after `;` — without a space:
+
+```ini
+PROXIES=user:pass@1.2.3.4:9405;#user:pass@9.9.9.9:1234;user:pass@5.6.7.8:8080
+```
+
+A `#` **preceded by a space** cuts the rest of the line, so do not put a space
+before it when disabling a single entry inside a list.
+
+### MTProto secret
+
+The secret is 32 hex characters (16 bytes). It is not a password but key
+material: anyone who knows it can use your proxy.
+
+If `SECRET` is empty, on the first launch the program asks:
+
+```
+В .env не задан SECRET для MTProto-прокси.
+Сгенерировать новый ключ? [Y/n]:
+```
+
+Answer `Y` (or press Enter) and the key is generated and written into `.env`.
+If you answer `n`, the program stops so you can set your own value.
+
+Under a GUI/service (no console) the key is generated automatically and written
+to `.env`.
+
+## Connecting Telegram
+
+**Computer (Telegram Desktop):**
 
 - MTProto: `tg://proxy?server=127.0.0.1&port=55055&secret=<SECRET>`
-- SOCKS5: `tg://socks?server=127.0.0.1&port=55056` (если `SOCKS_USER` пуст)
+- SOCKS5: `tg://socks?server=127.0.0.1&port=55056` (if `SOCKS_USER` is empty)
 
-Ссылки с правильными адресами и секретом всегда можно взять в трее.
+The tray always builds links with the correct address and secret.
 
-**Телефон в той же Wi-Fi:**
+**Phone in the same Wi-Fi:**
 
-Сервер `192.168.x.x` (адрес компьютера), порт `55055` (MTProto, с секретом)
-или `55056` (SOCKS5). Для SOCKS5, если задан пароль, он обязателен —
-`AUTH_BYPASS` действует только на адреса из списка.
+Server `192.168.x.x` (the computer's address), port `55055` (MTProto with the
+secret) or `55056` (SOCKS5). If `SOCKS_USER` is set, the password is required —
+`AUTH_BYPASS` only covers addresses from the list.
 
-## Доступ из других сетей (необязательно)
+## Access from other networks (optional)
 
-По умолчанию всё работает только в локальной сети. Если нужно подключаться
-снаружи (например, Telegram Desktop с другого компьютера), нужны две вещи.
+By default everything works only inside the local network. To connect from
+outside (for example, Telegram Desktop on another computer), two things are needed.
 
-**1. Проброс порта на роутере.** В веб-интерфейсе роутера найдите
-«Port Forwarding» / «Виртуальные серверы» и создайте правило:
+**1. Port forwarding on the router.** Open the router's web interface and find
+"Port Forwarding" / "Virtual Servers":
 
-| Параметр | Значение |
+| Field | Value |
 |---|---|
-| Внешний порт | 55055 (MTProto) и/или 55056 (SOCKS5) |
-| Внутренний IP | локальный адрес компьютера, например `192.168.1.10` |
-| Внутренний порт | тот же |
-| Протокол | TCP |
+| External port | 55055 (MTProto) and/or 55056 (SOCKS5) |
+| Internal IP | the computer's LAN address, e.g. `192.168.1.10` |
+| Internal port | the same |
+| Protocol | TCP |
 
-Адрес компьютера лучше закрепить в DHCP, иначе после перезагрузки он изменится.
+Pin the computer's address in DHCP, otherwise it changes after a reboot.
 
-**2. DDNS-имя.** Домашний IP меняется, поэтому используют динамический DNS:
+**2. DDNS name.** A home IP changes, so dynamic DNS is used:
 
-- <https://www.duckdns.org> — бесплатно, даёт имя вида `yourname.duckdns.org`;
-- <https://www.noip.com> — тоже бесплатный тариф.
+- <https://www.duckdns.org> — free, gives a name like `yourname.duckdns.org`;
+- <https://www.noip.com> — free tier as well.
 
-Выбранное имя впишите в `.env`:
+Put the name into `.env`:
 
 ```ini
 EXTERNAL_HOST=yourname.duckdns.org
 ```
 
-После перезапуска ссылки в трее будут уже с этим адресом.
+After a restart the tray links use this address.
 
-**Обязательно перед открытием наружу:**
+**Before exposing anything to the internet:**
 
-- задайте `SOCKS_USER` и `SOCKS_PASS` — иначе ваш SOCKS5 станет открытым
-  прокси для всего интернета;
-- помните, что MTProto-прокси без fake-TLS (секрет без префикса `ee`)
-  распознаётся системами DPI; для обхода блокировок он слабее, чем кажется;
-- не публикуйте секрет и список прокси.
+- set `SOCKS_USER` and `SOCKS_PASS`, otherwise your SOCKS5 becomes an open proxy
+  for the whole internet;
+- keep in mind that an MTProto proxy without fake-TLS (a secret without the `ee`
+  prefix) is recognisable by DPI systems;
+- never publish your secret or proxy list.
 
-## Ограничения
+## Limitations
 
-- Звонки Telegram через прокси не работают.
-- MTProto-часть не реализует fake-TLS (`ee`), поэтому трафик не маскируется
-  под HTTPS.
-- Скорость ограничена вашими прокси.
-- На некоторых мобильных операторах DPI обрывает HTTP CONNECT к адресам
-  Telegram — тогда мобильная сеть работать не будет.
+- Telegram calls do not work through a proxy.
+- The MTProto part does not implement fake-TLS (`ee`), so traffic is not disguised
+  as HTTPS.
+- Speed is limited by your proxies.
+- On some mobile carriers DPI drops HTTP CONNECT to Telegram addresses.
 
-## Диагностика
+## Troubleshooting
 
-Лог Windows: `tgrelay.log` рядом со скриптами.
-Лог Linux: `journalctl -u tgrelay -f`.
+Windows log: `tgrelay.log` next to the scripts.
+Linux log: `journalctl -u tgrelay -f`.
 
-Проверить пул прокси без запуска сервера:
+Check the proxy pool without starting the server:
 
 ```bash
 python socks5_to_http.py --test

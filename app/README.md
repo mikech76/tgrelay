@@ -1,53 +1,59 @@
-# tgrelay для Android
+# tgrelay for Android
 
-Локальный SOCKS5-прокси для Telegram: телефон сам поднимает сервер на
-`127.0.0.1:55056` и передаёт трафик через ваш пул HTTP CONNECT-прокси.
+A local SOCKS5 proxy for Telegram: the phone runs a server on `127.0.0.1:55056`
+and forwards traffic through your pool of HTTP CONNECT proxies.
 
-## Установка
+**Русская версия: [README.ru.md](README.ru.md)**
 
-1. Скачайте APK из раздела **Releases**.
-2. Разрешите установку из неизвестных источников и установите.
-3. Откройте приложение.
+## Install
 
-## Настройка
+1. Download the APK from **Releases**.
+2. Allow installation from unknown sources and install it.
+3. Open the app.
 
-1. В поле «Прокси» вставьте свой список — по одной строке на прокси:
+## Setup
+
+1. Paste your proxies into the "Прокси" field — one per line:
 
    ```
    user:password@1.2.3.4:9405
    5.6.7.8:8080
    ```
 
-2. **«Сохранить список»**.
-3. **«Включить»** — появится постоянное уведомление.
-4. **«Настроить Telegram»** → подтвердите прокси в Telegram.
+   Comments are allowed: a line starting with `#` is ignored, and everything
+   after ` #` is ignored too. Comment out a proxy to disable it temporarily.
 
-Вручную: Настройки → Данные и память → Настройки прокси → Добавить →
-**SOCKS5**, сервер `127.0.0.1`, порт `55056`, логин и пароль пустые.
+2. Tap **Save list** (Сохранить список).
+3. Tap **Enable** (Включить) — a persistent notification appears.
+4. Tap **Set up Telegram** (Настроить Telegram) and confirm the proxy.
 
-## Полезное
+Manual setup: Settings → Data and Storage → Proxy Settings → Add proxy →
+**SOCKS5**, server `127.0.0.1`, port `55056`, empty login and password.
 
-- «Разрешить работу в фоне» — исключение из оптимизации батареи.
-- Галочка «Запускать при включении телефона» — автозапуск после перезагрузки.
-- Логи для отладки: `adb logcat -s tgsocks`.
+## Good to know
 
-## Сборка
+- **Allow background work** (Разрешить работу в фоне) — exempts the app from
+  battery optimisation.
+- **Start on boot** (Запускать при включении телефона) — autostart after reboot.
+- Logs for debugging: `adb logcat -s tgsocks`.
 
-Нужен Docker:
+## Build
+
+Docker is required:
 
 ```bash
 docker pull ghcr.io/cirruslabs/android-sdk:34
-cp assets/example_proxies.txt assets/default_proxies.txt   # если нужен встроенный список
+cp assets/example_proxies.txt assets/default_proxies.txt   # optional: baked-in list
 docker run --rm -v "$PWD:/app" ghcr.io/cirruslabs/android-sdk:34 bash /app/build.sh
 ```
 
-Готовый файл: `build/tgsocks.apk`.
+Result: `build/tgsocks.apk`.
 
-## Ограничения
+## Limitations
 
-- Звонки Telegram через прокси не работают.
-- Через приложение ходит только Telegram — это не VPN.
-- На части мобильных операторов DPI обрывает соединения к адресам Telegram.
+- Telegram calls do not work through a proxy.
+- Only Telegram uses the proxy — this is not a VPN.
+- On some mobile carriers DPI drops connections to Telegram addresses.
 
-Общее описание проекта и инструкция по покупке прокси — в
-[корневом README](../README.md).
+General description and where to buy proxies — in the
+[root README](../README.md).

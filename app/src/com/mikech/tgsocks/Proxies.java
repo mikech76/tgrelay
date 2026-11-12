@@ -50,13 +50,23 @@ public final class Proxies {
     private Proxies() {
     }
 
+    /** Убирает комментарий в конце строки: "текст # пояснение" -> "текст". */
+    private static String stripComment(String s) {
+        for (int i = 1; i < s.length(); i++) {
+            if (s.charAt(i) == '#' && Character.isWhitespace(s.charAt(i - 1))) {
+                return s.substring(0, i).trim();
+            }
+        }
+        return s;
+    }
+
     public static List<P> parse(String raw) {
         List<P> out = new ArrayList<>();
         if (raw == null) {
             return out;
         }
         for (String item : raw.split("[;\\n\\r]+")) {
-            item = item.trim();
+            item = stripComment(item.trim()).trim();
             if (item.isEmpty() || item.startsWith("#")) {
                 continue;
             }

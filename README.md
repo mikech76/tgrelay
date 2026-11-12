@@ -1,245 +1,148 @@
-# tgrelay — прокси для Telegram: Android и компьютер
+# tgrelay — Telegram proxy for Android and desktop
 
-Один и тот же принцип на двух платформах: берём дешёвый **HTTP CONNECT**-прокси
-(который Telegram не понимает) и превращаем его в то, что Telegram понимает.
+Two builds, one idea: take a cheap **HTTP CONNECT** proxy (which Telegram cannot use)
+and turn it into something Telegram understands.
 
 ```
-Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → прокси-провайдер → DC Telegram
+Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → proxy provider → Telegram DC
 ```
 
-## Что в репозитории
+**Русская версия: [README.ru.md](README.ru.md)**
 
-| Папка | Для чего |
+## What is in this repository
+
+| Folder | What it is |
 |---|---|
-| **`app/`** | Android-приложение: один APK, локальный SOCKS5, ничего настраивать не надо |
-| **`desktop/`** | Компьютер (Windows и Linux): MTProto + SOCKS5 одновременно, общий пул прокси |
+| [`app/`](app/README.md) | Android app: one APK, local SOCKS5, no setup beyond a proxy list |
+| [`desktop/`](desktop/README.md) | Windows and Linux: MTProto **and** SOCKS5 at the same time, shared proxy pool |
 
-- Android: [app/README](app/README.md) — установка APK, список прокси, автозапуск.
-- Windows/Linux: [desktop/README](desktop/README.md) — запуск, порты, systemd,
-  доступ из локальной сети и из интернета.
+## Why this exists
 
-Android-версия поднимает SOCKS5 **только на `127.0.0.1`** и ничего не расшифровывает:
-SOCKS5 передаёт лишь адрес и порт, шифрование Telegram остаётся сквозным.
+1. **Telegram for Android has no "HTTP" proxy type.** Only SOCKS5, MTProto and WEB.
+   A bought HTTP CONNECT proxy simply cannot be entered into the phone app.
+   Desktop Telegram does have an HTTP field — the phone does not.
+2. **MTProto proxies with a secret are sold separately and cost more.**
+   SOCKS5 is often a separate, more expensive plan too.
+3. **Cheap shared proxies often do not pass Telegram traffic**: they block
+   datacenter addresses, non-standard ports or long-lived connections, and part
+   of any pool is dead at any moment.
 
-```
-Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → прокси-провайдер → DC Telegram
-```
+This project fixes all three: it converts HTTP CONNECT into SOCKS5 (and MTProto on
+desktop), keeps a pool of proxies with retries and a fallback to port 443, so one
+bad proxy does not take the messenger down.
 
-## Зачем
+Result: a cheap HTTP proxy (~39 RUB) plus this app ≈ a working Telegram proxy,
+without buying an expensive MTProto plan.
 
-- Telegram на Android умеет SOCKS5 и MTProto, но **не умеет HTTP-прокси**.
-- Многие провайдеры продают именно HTTP CONNECT (иногда с логином/паролем).
-- Это приложение переводит одно в другое, не требуя root, VPN и ПК.
+## Android
 
-## Зачем это нужно
+1. Install the APK from **Releases**.
+2. Open the app, paste your proxies (one per line), tap **Save list**.
+3. Tap **Enable**, then **Set up Telegram**.
 
-Может показаться: «купил прокси — вбей его в Telegram и пользуйся». На Android так не получится,
-и вот почему.
+Details: [app/README.md](app/README.md).
 
-1. **В Telegram для Android нет типа прокси «HTTP».** Есть только SOCKS5, MTProto и WEB.
-   Купленный HTTP CONNECT-прокси (а дешёвые продаются именно такими) вписать в телефон
-   буквально некуда — поля нет. На десктопе такое поле есть, на телефоне нет.
-2. **MTProto-прокси с секретом продают отдельно и дороже.** SOCKS5 у многих провайдеров
-   тоже отдельная, более дорогая услуга.
-3. **Дешёвые shared-прокси часто не пропускают Telegram**: режут адреса дата-центров
-   или нестандартные порты, рвут долгие соединения, часть прокси в пуле вообще мертва.
+## Desktop (Windows / Linux)
 
-Это приложение закрывает все три пункта: превращает HTTP CONNECT в SOCKS5, который
-Telegram понимает, держит пул из нескольких прокси с повторами и переходом на порт 443,
-и не даёт одному плохому прокси уронить мессенджер.
+Windows:
 
-Итог: дешёвый HTTP-прокси за ~39 ₽ + это приложение ≈ рабочий прокси для Telegram,
-без покупки дорогого MTProto-тарифа.
-
-## Возможности
-
-- SOCKS5 на `127.0.0.1:55056`, снаружи недоступен.
-- Пул прокси: случайный выбор, до 5 попыток на соединение, «залипание» на удачном.
-- Basic-аутентификация прокси.
-- Если прокси не пускает на запрошенный порт — автоматическая попытка через 443.
-- Foreground-сервис с уведомлением, кнопка Вкл/Выкл.
-- Кнопка «Настроить Telegram» — открывает диалог добавления прокси по `tg://socks`.
-- Автозапуск после перезагрузки (галочка).
-- Запрос на отключение оптимизации батареи.
-- Список прокси хранится в настройках приложения и не требует пересборки.
-
-## Требования
-
-- Android 7.0+ (minSdk 24), проверено на Android 15.
-- Никаких root/ADB для работы.
-
-## Установка
-
-1. Скачайте APK из раздела **Releases** этого репозитория.
-2. Разрешите установку из неизвестных источников для файлового менеджера/браузера.
-3. Установите и откройте приложение.
-
-> APK в Releases собран с пустым списком прокси. Свои нужно добавить в приложении.
-
-## Настройка
-
-1. Откройте приложение.
-2. В поле «Прокси» вставьте свой список — по одному в строке:
-
-   ```
-   user:password@1.2.3.4:9405
-   user2:password2@5.6.7.8:9829
-   9.9.9.9:8080
-   ```
-
-   Формат: `user:pass@host:port` или, если без авторизации, `host:port`.
-   Строки, начинающиеся с `#`, игнорируются. Разделитель `;` тоже поддерживается.
-3. Нажмите **«Сохранить список»**.
-4. Нажмите **«Включить»** — появится постоянное уведомление, статус сменится на
-   «включён, 127.0.0.1:55056».
-5. Нажмите **«Настроить Telegram»** → в Telegram подтвердите прокси.
-   Либо вручную: Настройки → Данные и память → Настройки прокси → Добавить →
-   **SOCKS5**, сервер `127.0.0.1`, порт `55056`, логин и пароль пустые.
-6. По желанию: **«Разрешить работу в фоне»** и галочка автозапуска.
-
-## Как проверить, что работает
-
-- В уведомлении видно, что сервис запущен.
-- В Telegram в списке прокси статус «Подключено» и пинг.
-- Логи приложения (для отладки):
-
-  ```
-  adb logcat -s tgsocks
-  ```
-
-  Строки `tunnel 149.154.x.x:443 via <ваш прокси>` означают, что соединения
-  к серверам Telegram идут через прокси.
-
-## Как купить прокси (и не купить не то)
-
-Для этого приложения подходит **только HTTP / HTTP CONNECT прокси с логином и паролем**.
-Всё остальное — мимо:
-
-| Что предлагают | Подходит? |
-|---|---|
-| **HTTP / HTTP CONNECT**, shared IPv4 | ✅ да, это то, что нужно |
-| SOCKS5 | ⚠️ Telegram понимает его сам, приложение не нужно (но у дешёвых тарифов его обычно нет) |
-| MTProto с секретом | ❌ работает без приложения, но стоит дороже |
-| WEB-прокси | ❌ нужен свой домен и сервер |
-| VPN | ❌ это другая история |
-
-Дешёвый вариант, которым пользуется автор:
-
-- **ProxyMania** — <https://proxymania.me/?r=58869>
-  (ссылка реферальная: автор получает небольшой бонус от сервиса, цена для вас
-  от этого не меняется)
-- промокод на скидку: `USER-4eef3a9758c7dc2a` — **скидка 5%** на покупку
-- что выбрать в каталоге: тип **HTTP**, **shared IPv4**, страна любая
-  (например США), срок — минимальный
-- цена: около **39 ₽** за прокси
-
-### Что делать после оплаты
-
-В личном кабинете будет примерно так:
-
-```
-сервер: 138.219.120.236
-порт:   9405
-логин:  QzSKu1
-пароль: CXMGXT
+```bat
+start.cmd
 ```
 
-В приложении это записывается **одной строкой**:
-
-```
-QzSKu1:CXMGXT@138.219.120.236:9405
-```
-
-Несколько прокси — по одной строке на каждый. Берите 2–3 штуки: дешёвые
-shared-прокси периодически умирают, и пул из нескольких заметно стабильнее
-одного.
-
-### Почему не «просто вбить прокси в Telegram»
-
-В Telegram для Android нет типа прокси «HTTP» — только SOCKS5, MTProto и WEB.
-Купленный HTTP-прокси вписать в телефон некуда, поэтому и нужно это приложение.
-Подробнее — в разделе «Зачем это нужно».
-
-### Проверка перед покупкой
-
-Спросите у продавца (или посмотрите в описании тарифа) два пункта:
-
-1. тип — **HTTP (CONNECT)**, не SOCKS5;
-2. есть **логин и пароль** (Basic-аутентификация).
-
-Если оба пункта есть — прокси подойдёт.
-
-## Ограничения
-
-- **Звонки Telegram через прокси не работают** — это особенность прокси, не приложения.
-  Текст, фото, файлы и видео работают.
-- Скорость ограничена вашими прокси.
-- Пока сервис остановлен системой — прокси не работает. Держите приложение
-  в исключениях батареи.
-- Приложение не является VPN: через него ходит только Telegram, если в нём
-  прописан прокси. Остальные приложения — напрямую.
-- На некоторых мобильных операторах DPI читает строку `CONNECT <IP>:443`
-  (адрес сервера Telegram виден открытым текстом) и обрывает такие соединения.
-  В этом случае через мобильную сеть прокси работать не будет — используйте Wi-Fi
-  или другой тип туннеля (VPN/MTProto-прокси).
-
-## Сборка из исходников
-
-Нужен Docker (образ с Android SDK, ~2 ГБ) — JDK и SDK локально не требуются.
+Linux:
 
 ```bash
-docker pull ghcr.io/cirruslabs/android-sdk:34
-
-cd app
-cp assets/example_proxies.txt assets/default_proxies.txt   # и впишите свои, если нужно
-docker run --rm -v "$PWD:/app" ghcr.io/cirruslabs/android-sdk:34 bash /app/build.sh
+chmod +x install-linux.sh
+./install-linux.sh
+nano .env          # proxies + secret
+./install-linux.sh # installs the systemd service
 ```
 
-Готовый файл: `app/build/tgsocks.apk` (подписан debug-ключом, создаётся автоматически).
+Two proxies start at once: MTProto on `55055`, SOCKS5 on `55056`.
+Details: [desktop/README.md](desktop/README.md).
 
-Для сборки без встроенного списка просто не создавайте `default_proxies.txt` —
-приложение стартует с пустым полем, список вводится в нём же.
+## Configuration (`.env`)
 
-> `app/assets/default_proxies.txt` добавлен в `.gitignore`: свои прокси в репозиторий
-> не коммитьте.
+Everything lives in one file next to the program. Sections, comments and
+one proxy per line:
 
-## Структура
+```ini
+# 1. PROXIES
+PROXY=user:password@1.2.3.4:9405     # primary
+PROXY=user:password@5.6.7.8:9829     # backup
+# PROXY=9.9.9.9:8080                 # disabled: commented out
 
-```
-app/                             Android
-  AndroidManifest.xml
-  build.sh                       сборка через Docker (aapt2 + javac + d8 + apksigner)
-  assets/example_proxies.txt     шаблон списка прокси
-  res/                           иконка, строки
-  src/com/mikech/tgsocks/
-    MainActivity.java            единственный экран
-    ProxyService.java            foreground-сервис
-    Socks5Server.java            SOCKS5-сервер и HTTP CONNECT-клиент
-    Proxies.java                 разбор списка прокси
-    BootReceiver.java            автозапуск
+# 2. PORTS
+PROXY_PORT=55055                     # MTProto
+SOCKS_PORT=55056                     # SOCKS5
+SOCKS_HOST=0.0.0.0                   # 127.0.0.1 = this PC only
 
-desktop/                         Windows и Linux
-  server.py                      поднимает MTProto и SOCKS5 в одном процессе
-  mtproto_handler.py             MTProto-прокси (расшифровка handshake)
-  socks5_to_http.py              SOCKS5 -> HTTP CONNECT, пул и повторы
-  upstream_proxy.py              HTTP CONNECT с Basic-аутентификацией
-  proxy_pool.py                  пул прокси, healthcheck, конфиг из .env
-  tray_app.py                    иконка в трее, ссылки, QR (Windows)
-  main.py / run.pyw              запуск с треем (Windows)
-  run_headless.py                запуск без GUI (Linux, systemd)
-  start.cmd                      запуск в Windows
-  install-linux.sh               установка в Linux (venv + systemd)
-  .env.example                   шаблон конфига
+# 3. MTProto SECRET
+SECRET=                              # empty = generated on first run
+
+# 4. EXTERNAL NAME (only if you forwarded the port)
+EXTERNAL_HOST=                       # e.g. yourname.duckdns.org
+
+# 5. SOCKS5 ACCESS
+AUTH_BYPASS=127.0.0.1/32,192.168.0.0/24
+SOCKS_USER=
+SOCKS_PASS=
 ```
 
-## Безопасность
+- Anything after ` #` is a comment.
+- Full-line comments start with `#`.
+- Comment out one proxy to disable it temporarily.
+- Leave `SECRET` empty: on first launch the program offers to generate a key
+  and writes it into `.env` for you.
 
-- Сервер слушает только loopback: из локальной сети и из интернета он недоступен.
-- Пароли прокси хранятся в настройках приложения на устройстве (не в облаке).
-- Прокси-провайдер видит ваш IP и объём трафика, но не содержимое переписки:
-  шифрование Telegram сквозное.
-- Не публикуйте свой список прокси и собранные с ним APK.
+## Where to buy proxies
 
-## Лицензия
+Any provider of **HTTP CONNECT** proxies with username/password will work.
 
-MIT — см. `LICENSE`.
+| What is offered | Works? |
+|---|---|
+| **HTTP / HTTP CONNECT**, shared IPv4 | yes — this is what the app needs |
+| SOCKS5 | Telegram understands it directly; the app is not needed |
+| MTProto with a secret | works without this app, but costs more |
+| WEB proxy | needs your own domain and server |
+| VPN | a different story |
+
+Cheap option used by the author (referral link — the price for you does not change):
+
+- **ProxyMania** — <https://proxymania.me/?r=58869>
+- promo code: `USER-4eef3a9758c7dc2a` — **5% off**
+- in the catalog choose: type **HTTP**, **shared IPv4**, any country, minimal term
+- price: about **39 RUB** per proxy
+
+After payment you get host, port, login and password. In the app it becomes one line:
+
+```
+user:password@1.2.3.4:9405
+```
+
+Buy 2–3 proxies: cheap shared proxies die regularly, a pool is noticeably
+more stable than a single one.
+
+## Limitations
+
+- **Telegram calls do not work through a proxy** — a proxy limitation, not the app's.
+  Text, photos, files and video work.
+- Speed is limited by your proxies.
+- The desktop MTProto part does not implement fake-TLS (`ee`), so traffic is not
+  disguised as HTTPS.
+- This is not a VPN: only Telegram uses the proxy, other apps go direct.
+- On some mobile carriers DPI drops HTTP CONNECT to Telegram addresses; the proxy
+  will not work over such a mobile network.
+
+## Security
+
+- The Android app listens on loopback only: unreachable from the LAN or the internet.
+- Proxy passwords are stored locally on the device.
+- The proxy provider sees your IP and traffic volume, not message contents:
+  Telegram encryption is end-to-end.
+- Never publish your proxy list or a build with it baked in.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
