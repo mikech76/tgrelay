@@ -4,7 +4,7 @@ import os
 
 import socks5_to_http
 from mtproto_handler import MTProtoHandler
-from proxy_pool import ProxyPool, load_secret, config
+from proxy_pool import ProxyPool, load_secret, config, get_external_ip
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,8 @@ async def start_server():
     logger.info("SOCKS5 listening on %s",
                 ', '.join(str(s.getsockname()) for s in socks_server.sockets))
     print(f"SOCKS5 link: {socks5_to_http.socks_link()}")
+    print(f"MTProto link: tg://proxy?server={get_external_ip()}"
+          f"&port={port}&secret={secret.hex()}")
 
     try:
         await asyncio.gather(
