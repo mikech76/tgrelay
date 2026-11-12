@@ -160,8 +160,8 @@ public class Socks5Server {
             cout.flush();
 
             Socket upSock = up.socket;
-            Thread a = new Thread(() -> pump(cin, up.out, client, upSock), "socks-c2u");
-            Thread b = new Thread(() -> pump(up.in, cout, upSock, client), "socks-u2c");
+            Thread a = new Thread(() -> pump(cin, up.out, client, upSock, "c2u"), "socks-c2u");
+            Thread b = new Thread(() -> pump(up.in, cout, upSock, client, "u2c"), "socks-u2c");
             a.setDaemon(true);
             b.setDaemon(true);
             a.start();
@@ -177,15 +177,19 @@ public class Socks5Server {
         }
     }
 
-    private void pump(InputStream in, OutputStream out, Socket a, Socket b) {
+    private void pump(InputStream in, OutputStream out, Socket a, Socket b, String name) {
         byte[] buf = new byte[BUF];
+        long total = 0;
         try {
             int n;
             while ((n = in.read(buf)) > 0) {
                 out.write(buf, 0, n);
                 out.flush();
+                total += n;
             }
-        } catch (IOException ignored) {
+            Log.i(TAG, "pipe " + name + " eof, " + total + " bytes");
+        } catch (IOException e) {
+            Log.i(TAG, "pipe " + name + " break, " + total + " bytes: " + e);
         } finally {
             closeQuietly(a);
             closeQuietly(b);
