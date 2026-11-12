@@ -1,0 +1,6 @@
+# Только для Windows (иконка в трее, QR, буфер обмена)
+-r requirements.txt
+pystray>=0.19.0
+Pillow>=10.0.0
+qrcode[pil]>=7.4.0
+pyperclip>=1.8.2

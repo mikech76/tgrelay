@@ -1,0 +1,16 @@
+[Unit]
+Description=tgrelay: MTProto + SOCKS5 proxy for Telegram
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Замените на своего пользователя и путь
+User=user
+WorkingDirectory=/opt/tgrelay
+ExecStart=/opt/tgrelay/venv/bin/python /opt/tgrelay/run_headless.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

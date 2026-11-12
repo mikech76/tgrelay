@@ -1,11 +1,25 @@
-# tgrelay — локальный SOCKS5-прокси для Telegram на Android
+# tgrelay — прокси для Telegram: Android и компьютер
 
-Маленькое приложение: поднимает SOCKS5-сервер **только на `127.0.0.1`** и гонит трафик
-через ваш пул HTTP CONNECT-прокси (например, купленных у proxy-провайдера).
+Один и тот же принцип на двух платформах: берём дешёвый **HTTP CONNECT**-прокси
+(который Telegram не понимает) и превращаем его в то, что Telegram понимает.
 
-Telegram настраивается на `127.0.0.1:55056` и дальше сам ходит через прокси.
-Ничего не расшифровывается: SOCKS5 передаёт только адрес и порт, шифрование
-Telegram остаётся сквозным.
+```
+Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → прокси-провайдер → DC Telegram
+```
+
+## Что в репозитории
+
+| Папка | Для чего |
+|---|---|
+| **`app/`** | Android-приложение: один APK, локальный SOCKS5, ничего настраивать не надо |
+| **`desktop/`** | Компьютер (Windows и Linux): MTProto + SOCKS5 одновременно, общий пул прокси |
+
+- Android: [app/README](app/README.md) — установка APK, список прокси, автозапуск.
+- Windows/Linux: [desktop/README](desktop/README.md) — запуск, порты, systemd,
+  доступ из локальной сети и из интернета.
+
+Android-версия поднимает SOCKS5 **только на `127.0.0.1`** и ничего не расшифровывает:
+SOCKS5 передаёт лишь адрес и порт, шифрование Telegram остаётся сквозным.
 
 ```
 Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → прокси-провайдер → DC Telegram
@@ -192,17 +206,30 @@ docker run --rm -v "$PWD:/app" ghcr.io/cirruslabs/android-sdk:34 bash /app/build
 ## Структура
 
 ```
-app/
+app/                             Android
   AndroidManifest.xml
-  build.sh                     сборка через Docker (aapt2 + javac + d8 + apksigner)
-  assets/example_proxies.txt   шаблон списка прокси
-  res/                         иконка, строки
+  build.sh                       сборка через Docker (aapt2 + javac + d8 + apksigner)
+  assets/example_proxies.txt     шаблон списка прокси
+  res/                           иконка, строки
   src/com/mikech/tgsocks/
-    MainActivity.java          единственный экран
-    ProxyService.java          foreground-сервис
-    Socks5Server.java          SOCKS5-сервер и HTTP CONNECT-клиент
-    Proxies.java               разбор списка прокси
-    BootReceiver.java          автозапуск
+    MainActivity.java            единственный экран
+    ProxyService.java            foreground-сервис
+    Socks5Server.java            SOCKS5-сервер и HTTP CONNECT-клиент
+    Proxies.java                 разбор списка прокси
+    BootReceiver.java            автозапуск
+
+desktop/                         Windows и Linux
+  server.py                      поднимает MTProto и SOCKS5 в одном процессе
+  mtproto_handler.py             MTProto-прокси (расшифровка handshake)
+  socks5_to_http.py              SOCKS5 -> HTTP CONNECT, пул и повторы
+  upstream_proxy.py              HTTP CONNECT с Basic-аутентификацией
+  proxy_pool.py                  пул прокси, healthcheck, конфиг из .env
+  tray_app.py                    иконка в трее, ссылки, QR (Windows)
+  main.py / run.pyw              запуск с треем (Windows)
+  run_headless.py                запуск без GUI (Linux, systemd)
+  start.cmd                      запуск в Windows
+  install-linux.sh               установка в Linux (venv + systemd)
+  .env.example                   шаблон конфига
 ```
 
 ## Безопасность
