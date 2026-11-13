@@ -1,4 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Прокси для Telegram</string>
+    <string name="app_name">tgrelay</string>
+    <string name="title">Proxy for Telegram</string>
+    <string name="status_off">Status: off</string>
+    <string name="status_on">Status: on, 127.0.0.1:%1$d</string>
+    <string name="pool_state">Proxies: %1$d/%2$d reachable</string>
+    <string name="traffic">↑ %1$s   ↓ %2$s</string>
+    <string name="uptime">Uptime: %1$s</string>
+    <string name="connections">connections: %1$d</string>
+    <string name="btn_start">Enable</string>
+    <string name="btn_stop">Disable</string>
+    <string name="btn_setup">Set up Telegram</string>
+    <string name="btn_save">Save list</string>
+    <string name="boot_opt">Start on boot</string>
+    <string name="battery">Allow background work</string>
+    <string name="proxy_hint">Proxies (one per line, user:pass@host:port):</string>
+    <string name="saved">Saved. Restart the proxy.</string>
+    <string name="battery_ok">Already allowed</string>
+    <string name="battery_fail">Cannot open settings</string>
+    <string name="tg_not_found">Telegram not found</string>
+    <string name="tg_added">Tap Enable in Telegram</string>
+
+    <string name="notif_off">Proxy is off</string>
+    <string name="notif_on">Proxy is on</string>
+    <string name="notif_no_link">Proxy: no connection</string>
+    <string name="notif_pool">Proxies: %1$d/%2$d</string>
+    <string name="notif_error">Proxy: error</string>
+    <string name="notif_stop">Stop</string>
+
+    <string name="channel_name">tgrelay</string>
+
+    <string name="unit_b">B</string>
+    <string name="unit_kb">KB</string>
+    <string name="unit_mb">MB</string>
+    <string name="unit_gb">GB</string>
+    <string name="u_day">%1$d d</string>
+    <string name="u_hour">%1$d h</string>
+    <string name="u_min">%1$d min</string>
+    <string name="u_sec">%1$d s</string>
+
+    <string name="lang_ru">Русский</string>
+    <string name="lang_en">English</string>
 </resources>

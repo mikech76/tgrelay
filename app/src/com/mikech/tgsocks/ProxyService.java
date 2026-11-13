@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
@@ -35,6 +36,11 @@ public class ProxyService extends Service {
 
     public static Socks5Server instance() {
         return instance;
+    }
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(LocaleHelper.wrap(base));
     }
 
     @Override
@@ -81,7 +87,7 @@ public class ProxyService extends Service {
             running = false;
             server = null;
             instance = null;
-            notifyText("Не удалось запустить: " + e.getMessage());
+            notifyText(getString(R.string.notif_error) + ": " + e.getMessage());
         }
     }
 
@@ -150,44 +156,49 @@ public class ProxyService extends Service {
     private void createChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            if (nm != null && nm.getNotificationChannel(CHANNEL) == null) {
+            if (nm != null) {
                 NotificationChannel ch = new NotificationChannel(
-                        CHANNEL, "Прокси", NotificationManager.IMPORTANCE_LOW);
-                ch.setDescription("Локальный SOCKS5 для Telegram");
+                        CHANNEL, getString(R.string.channel_name),
+                        NotificationManager.IMPORTANCE_LOW);
                 ch.setShowBadge(false);
                 nm.createNotificationChannel(ch);
             }
         }
     }
 
-    public static String fmtBytes(long b) {
+    public static String fmtBytes(Context c, long b) {
         if (b < 1024) {
-            return b + " Б";
+            return b + " " + c.getString(R.string.unit_b);
         }
         if (b < 1024L * 1024) {
-            return String.format(Locale.US, "%.0f КБ", b / 1024.0);
+            return String.format(Locale.US, "%.0f ", b / 1024.0)
+                    + c.getString(R.string.unit_kb);
         }
         if (b < 1024L * 1024 * 1024) {
-            return String.format(Locale.US, "%.1f МБ", b / 1048576.0);
+            return String.format(Locale.US, "%.1f ", b / 1048576.0)
+                    + c.getString(R.string.unit_mb);
         }
-        return String.format(Locale.US, "%.2f ГБ", b / 1073741824.0);
+        return String.format(Locale.US, "%.2f ", b / 1073741824.0)
+                + c.getString(R.string.unit_gb);
     }
 
-    public static String fmtUptime(long ms) {
+    public static String fmtUptime(Context c, long ms) {
         long s = ms / 1000;
         long m = s / 60;
         long h = m / 60;
         long d = h / 24;
         if (d > 0) {
-            return d + " д " + (h % 24) + " ч";
+            return c.getString(R.string.u_day, (int) d) + " "
+                    + c.getString(R.string.u_hour, (int) (h % 24));
         }
         if (h > 0) {
-            return h + " ч " + (m % 60) + " мин";
+            return c.getString(R.string.u_hour, (int) h) + " "
+                    + c.getString(R.string.u_min, (int) (m % 60));
         }
         if (m > 0) {
-            return m + " мин";
+            return c.getString(R.string.u_min, (int) m);
         }
-        return s + " с";
+        return c.getString(R.string.u_sec, (int) s);
     }
 
     private Notification buildNotification() {
@@ -195,6 +206,8 @@ public class ProxyService extends Service {
     }
 
     private Notification buildNotification(String errorText) {
+        Context c = LocaleHelper.wrap(this);
+
         Intent open = new Intent(this, MainActivity.class);
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= 23) {
@@ -210,23 +223,23 @@ public class ProxyService extends Service {
         String text;
 
         if (errorText != null) {
-            title = "Прокси: ошибка";
+            title = c.getString(R.string.notif_error);
             text = errorText;
         } else if (s == null) {
-            title = "Прокси выключен";
+            title = c.getString(R.string.notif_off);
             text = "127.0.0.1:" + PORT;
         } else {
             int alive = s.aliveProxies();
             if (alive < 0) {
-                title = "Прокси включён";
+                title = c.getString(R.string.notif_on);
             } else if (alive == 0) {
-                title = "Прокси: нет связи";
+                title = c.getString(R.string.notif_no_link);
             } else {
-                title = "Прокси: " + alive + "/" + s.totalProxies() + " доступны";
+                title = c.getString(R.string.notif_pool, alive, s.totalProxies());
             }
-            text = "↑ " + fmtBytes(s.bytesUp())
-                    + "   ↓ " + fmtBytes(s.bytesDown())
-                    + "   ·   " + fmtUptime(s.uptimeMs());
+            text = c.getString(R.string.traffic,
+                    fmtBytes(c, s.bytesUp()), fmtBytes(c, s.bytesDown()))
+                    + "   ·   " + fmtUptime(c, s.uptimeMs());
         }
 
         Notification.Builder b;
@@ -254,7 +267,7 @@ public class ProxyService extends Service {
             b.addAction(new Notification.Action.Builder(
                     Icon.createWithResource(this,
                             android.R.drawable.ic_menu_close_clear_cancel),
-                    "Стоп", piStop).build());
+                    c.getString(R.string.notif_stop), piStop).build());
         }
         return b.build();
     }

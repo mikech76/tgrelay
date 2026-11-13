@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">tgrelay</string>
+    <string name="title">Прокси для Telegram</string>
+    <string name="status_off">Статус: выключен</string>
+    <string name="status_on">Статус: включён, 127.0.0.1:%1$d</string>
+    <string name="pool_state">Прокси: %1$d/%2$d доступны</string>
+    <string name="traffic">↑ %1$s   ↓ %2$s</string>
+    <string name="uptime">В работе: %1$s</string>
+    <string name="connections">соединений: %1$d</string>
+    <string name="btn_start">Включить</string>
+    <string name="btn_stop">Выключить</string>
+    <string name="btn_setup">Настроить Telegram</string>
+    <string name="btn_save">Сохранить список</string>
+    <string name="boot_opt">Запускать при включении телефона</string>
+    <string name="battery">Разрешить работу в фоне</string>
+    <string name="proxy_hint">Прокси (по одному в строке, формат user:pass@host:port):</string>
+    <string name="saved">Сохранено. Перезапусти прокси.</string>
+    <string name="battery_ok">Уже разрешено</string>
+    <string name="battery_fail">Не удалось открыть настройки</string>
+    <string name="tg_not_found">Telegram не найден</string>
+    <string name="tg_added">В Telegram нажмите «Включить»</string>
+
+    <string name="notif_off">Прокси выключен</string>
+    <string name="notif_on">Прокси включён</string>
+    <string name="notif_no_link">Прокси: нет связи</string>
+    <string name="notif_pool">Прокси: %1$d/%2$d доступны</string>
+    <string name="notif_error">Прокси: ошибка</string>
+    <string name="notif_stop">Стоп</string>
+
+    <string name="channel_name">tgrelay</string>
+
+    <string name="unit_b">Б</string>
+    <string name="unit_kb">КБ</string>
+    <string name="unit_mb">МБ</string>
+    <string name="unit_gb">ГБ</string>
+    <string name="u_day">%1$d д</string>
+    <string name="u_hour">%1$d ч</string>
+    <string name="u_min">%1$d мин</string>
+    <string name="u_sec">%1$d с</string>
+
+    <string name="lang_ru">Русский</string>
+    <string name="lang_en">English</string>
+</resources>

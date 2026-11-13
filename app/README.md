@@ -32,6 +32,8 @@ Manual setup: Settings → Data and Storage → Proxy Settings → Add proxy →
 
 ## Good to know
 
+- **Language**: the button at the top switches the whole app between English and
+  Russian, including the notification. The choice is remembered.
 - **Notification**: shows whether the proxy pool is reachable (`Прокси: 6/6 доступны`),
   traffic up/down, uptime and has a **Стоп** button. It updates every 5 seconds.
 - **Allow background work** (Разрешить работу в фоне) — exempts the app from
