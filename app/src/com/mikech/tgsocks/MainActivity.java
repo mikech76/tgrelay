@@ -113,6 +113,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         updateUi();
+        status.postDelayed(this::updateUi, 3000);
     }
 
     private boolean isRussian() {
@@ -162,6 +163,8 @@ public class MainActivity extends Activity {
             startService(i);
         }
         status.postDelayed(this::updateUi, 500);
+        status.postDelayed(this::updateUi, 3000);
+        status.postDelayed(this::updateUi, 8000);
     }
 
     private void openTelegram() {
