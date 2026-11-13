@@ -103,10 +103,27 @@ public class MainActivity extends Activity {
 
     private void updateUi() {
         boolean on = ProxyService.isRunning();
-        status.setText(on
-                ? "Статус: включён, 127.0.0.1:" + ProxyService.PORT
-                : "Статус: выключен");
-        toggle.setText(on ? "Выключить" : "Включить");
+        if (!on) {
+            status.setText("Статус: выключен");
+            toggle.setText("Включить");
+            return;
+        }
+        Socks5Server s = ProxyService.instance();
+        StringBuilder sb = new StringBuilder("Статус: включён, 127.0.0.1:")
+                .append(ProxyService.PORT);
+        if (s != null) {
+            int alive = s.aliveProxies();
+            if (alive >= 0) {
+                sb.append("\nПрокси: ").append(alive)
+                        .append("/").append(s.totalProxies()).append(" доступны");
+            }
+            sb.append("\n↑ ").append(ProxyService.fmtBytes(s.bytesUp()))
+                    .append("   ↓ ").append(ProxyService.fmtBytes(s.bytesDown()))
+                    .append("\nВ работе: ").append(ProxyService.fmtUptime(s.uptimeMs()))
+                    .append(", соединений: ").append(s.activeConnections());
+        }
+        status.setText(sb.toString());
+        toggle.setText("Выключить");
     }
 
     private void toggleProxy() {

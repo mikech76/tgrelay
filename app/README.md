@@ -32,6 +32,8 @@ Manual setup: Settings → Data and Storage → Proxy Settings → Add proxy →
 
 ## Good to know
 
+- **Notification**: shows whether the proxy pool is reachable (`Прокси: 6/6 доступны`),
+  traffic up/down, uptime and has a **Стоп** button. It updates every 5 seconds.
 - **Allow background work** (Разрешить работу в фоне) — exempts the app from
   battery optimisation.
 - **Start on boot** (Запускать при включении телефона) — autostart after reboot.

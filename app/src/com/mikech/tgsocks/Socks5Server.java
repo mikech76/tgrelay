@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Локальный SOCKS5-сервер. Принимает соединения только с 127.0.0.1
@@ -43,6 +45,13 @@ public class Socks5Server {
     private volatile String lastError = "";
     private volatile Proxies.P preferred;
 
+    private final AtomicLong bytesUp = new AtomicLong();
+    private final AtomicLong bytesDown = new AtomicLong();
+    private final AtomicInteger active = new AtomicInteger();
+    private final long startedAt = System.currentTimeMillis();
+    private volatile int aliveProxies = -1;
+    private volatile boolean healthRun;
+
     public Socks5Server(int port, List<Proxies.P> proxies, Logger log) {
         this.port = port;
         this.proxies = proxies;
@@ -61,11 +70,17 @@ public class Socks5Server {
         acceptThread = new Thread(this::acceptLoop, "socks-accept");
         acceptThread.setDaemon(true);
         acceptThread.start();
+
+        healthRun = true;
+        Thread health = new Thread(this::healthLoop, "socks-health");
+        health.setDaemon(true);
+        health.start();
         log.line("Слушаю 127.0.0.1:" + port + ", прокси: " + proxies.size());
     }
 
     public synchronized void stop() {
         running.set(false);
+        healthRun = false;
         if (serverSocket != null) {
             try {
                 serverSocket.close();
@@ -81,6 +96,31 @@ public class Socks5Server {
 
     public String lastError() {
         return lastError;
+    }
+
+    public long bytesUp() {
+        return bytesUp.get();
+    }
+
+    public long bytesDown() {
+        return bytesDown.get();
+    }
+
+    public int activeConnections() {
+        return active.get();
+    }
+
+    public long uptimeMs() {
+        return System.currentTimeMillis() - startedAt;
+    }
+
+    /** -1 = ещё не проверяли */
+    public int aliveProxies() {
+        return aliveProxies;
+    }
+
+    public int totalProxies() {
+        return proxies.size();
     }
 
     private void acceptLoop() {
@@ -100,6 +140,7 @@ public class Socks5Server {
 
     private void handle(Socket client) {
         Socket upstreamSocket = null;
+        active.incrementAndGet();
         try {
             client.setTcpNoDelay(true);
             InputStream cin = new BufferedInputStream(client.getInputStream());
@@ -160,8 +201,8 @@ public class Socks5Server {
             cout.flush();
 
             Socket upSock = up.socket;
-            Thread a = new Thread(() -> pump(cin, up.out, client, upSock, "c2u"), "socks-c2u");
-            Thread b = new Thread(() -> pump(up.in, cout, upSock, client, "u2c"), "socks-u2c");
+            Thread a = new Thread(() -> pump(cin, up.out, client, upSock, "c2u", bytesUp), "socks-c2u");
+            Thread b = new Thread(() -> pump(up.in, cout, upSock, client, "u2c", bytesDown), "socks-u2c");
             a.setDaemon(true);
             b.setDaemon(true);
             a.start();
@@ -172,12 +213,14 @@ public class Socks5Server {
             // нормальный случай: клиент закрыл соединение
             Log.d(TAG, "client end: " + e);
         } finally {
+            active.decrementAndGet();
             closeQuietly(client);
             closeQuietly(upstreamSocket);
         }
     }
 
-    private void pump(InputStream in, OutputStream out, Socket a, Socket b, String name) {
+    private void pump(InputStream in, OutputStream out, Socket a, Socket b,
+                      String name, AtomicLong counter) {
         byte[] buf = new byte[BUF];
         long total = 0;
         try {
@@ -186,6 +229,7 @@ public class Socks5Server {
                 out.write(buf, 0, n);
                 out.flush();
                 total += n;
+                counter.addAndGet(n);
             }
             Log.i(TAG, "pipe " + name + " eof, " + total + " bytes");
         } catch (IOException e) {
@@ -242,11 +286,16 @@ public class Socks5Server {
     }
 
     private Upstream connectVia(Proxies.P p, String host, int port) throws IOException {
+        return connectVia(p, host, port, CONNECT_TIMEOUT_MS);
+    }
+
+    private Upstream connectVia(Proxies.P p, String host, int port, int timeoutMs)
+            throws IOException {
         Socket s = new Socket();
         try {
-            s.connect(new InetSocketAddress(p.host, p.port), CONNECT_TIMEOUT_MS);
+            s.connect(new InetSocketAddress(p.host, p.port), timeoutMs);
             s.setTcpNoDelay(true);
-            s.setSoTimeout(CONNECT_TIMEOUT_MS);
+            s.setSoTimeout(timeoutMs);
 
             OutputStream out = s.getOutputStream();
             InputStream in = new BufferedInputStream(s.getInputStream());
@@ -280,6 +329,36 @@ public class Socks5Server {
         } catch (IOException e) {
             closeQuietly(s);
             throw e;
+        }
+    }
+
+    private void healthLoop() {
+        while (healthRun) {
+            int alive = 0;
+            for (Proxies.P p : proxies) {
+                if (!healthRun) {
+                    return;
+                }
+                if (probe(p)) {
+                    alive++;
+                }
+            }
+            aliveProxies = alive;
+            try {
+                Thread.sleep(60000);
+            } catch (InterruptedException e) {
+                return;
+            }
+        }
+    }
+
+    private boolean probe(Proxies.P p) {
+        try {
+            Upstream u = connectVia(p, "149.154.167.51", 443, 5000);
+            closeQuietly(u.socket);
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 
