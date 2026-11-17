@@ -4,8 +4,10 @@ import logging.handlers
 import os
 import sys
 import threading
+import traceback
 
-from appdir import ensure_env, fatal, log_path
+from appdir import (ensure_env, fatal, log_path, notify_already_running,
+                    single_instance)
 
 
 def _setup_logging():
@@ -33,8 +35,6 @@ def run_server():
         asyncio.set_event_loop_policy(
             asyncio.WindowsSelectorEventLoopPolicy())
 
-    _setup_logging()
-
     from server import start_server
     try:
         asyncio.run(start_server())
@@ -44,9 +44,24 @@ def run_server():
         os._exit(1)
 
 
+def _log_unhandled(exc_type, exc, tb):
+    """В windowed-сборке stderr нет — любую ошибку кладём в tgrelay.log."""
+    logging.getLogger('tgrelay').error(
+        'Unhandled exception:\n%s',
+        ''.join(traceback.format_exception(exc_type, exc, tb)))
+
+
 def main():
     if ensure_env() == 'created':
         return
+    if not single_instance():
+        notify_already_running()
+        return
+
+    _setup_logging()
+    sys.excepthook = _log_unhandled
+    threading.excepthook = lambda args: _log_unhandled(
+        args.exc_type, args.exc_value, args.exc_traceback)
 
     t = threading.Thread(target=run_server, daemon=True)
     t.start()

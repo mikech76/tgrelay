@@ -98,6 +98,16 @@ STRINGS = {
         'en': 'tgrelay',
         'ru': 'tgrelay',
     },
+    'already_running': {
+        'en': ('tgrelay is already running.\n\n'
+               'Its icon is in the system tray, next to the clock.'),
+        'ru': ('tgrelay уже запущен.\n\n'
+               'Иконка — в системном трее, возле часов.'),
+    },
+    'already_running_title': {
+        'en': 'tgrelay',
+        'ru': 'tgrelay',
+    },
     # секрет MTProto
     'secret_missing': {
         'en': 'SECRET is not set in .env for the MTProto proxy.',

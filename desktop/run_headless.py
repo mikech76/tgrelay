@@ -4,7 +4,8 @@ import logging.handlers
 import os
 import sys
 
-from appdir import ensure_env, fatal, log_path
+from appdir import (ensure_env, fatal, log_path, notify_already_running,
+                    single_instance)
 from i18n import t
 
 
@@ -26,6 +27,9 @@ def _setup_logging():
 
 def main():
     if ensure_env() == 'created':
+        return
+    if not single_instance():
+        notify_already_running()
         return
     if sys.platform == 'win32' and sys.version_info < (3, 14):
         asyncio.set_event_loop_policy(

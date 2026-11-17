@@ -45,6 +45,9 @@ A tray icon appears. Right click it:
 - **About** — version, author, repository link;
 - **Exit** — stop the proxies.
 
+Running `tgrelay.exe` a second time does not start a duplicate: it just says
+that the program is already running and points to the tray icon.
+
 Autostart: put a shortcut to `tgrelay.exe` into the Startup folder
 (`Win+R` → `shell:startup`).
 

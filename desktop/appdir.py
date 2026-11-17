@@ -103,6 +103,52 @@ def ensure_env():
     return 'created'
 
 
+_lock_handle = None
+
+
+def single_instance():
+    """True, если это первый экземпляр. Блокировка держится до выхода.
+
+    Второй запуск exe (частый случай: человек не заметил иконку в трее)
+    иначе падал бы с «address already in use» и пугающим окном ошибки.
+    """
+    global _lock_handle
+    try:
+        if sys.platform == 'win32':
+            import ctypes
+            kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+            handle = kernel32.CreateMutexW(None, False, 'tgrelay-single-instance')
+            if not handle:
+                return True
+            _lock_handle = handle
+            return ctypes.get_last_error() != 183      # ERROR_ALREADY_EXISTS
+        import fcntl
+        handle = open(os.path.join(app_dir(), 'tgrelay.lock'), 'a+')
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            handle.close()
+            return False
+        _lock_handle = handle
+        return True
+    except Exception:               # блокировки недоступны — не мешаем запуску
+        return True
+
+
+def notify_already_running():
+    """Сказать, что программа уже работает, и выйти."""
+    from i18n import t          # локальный импорт: i18n сам импортирует appdir
+    body = t('already_running')
+    if sys.platform == 'win32':
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                None, body, t('already_running_title'), 0x40)
+        except Exception:
+            pass
+    print(body, flush=True)
+
+
 def fatal(text):
     """Нечего запускать (нет прокси, занят порт) — сказать и выйти."""
     from i18n import t          # локальный импорт: i18n сам импортирует appdir
