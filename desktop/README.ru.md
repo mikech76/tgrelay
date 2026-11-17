@@ -21,13 +21,15 @@ MTProto-часть расшифровывает handshake (так устроен
 
 ## Windows: быстрый старт
 
-1. Установите Python 3 с <https://python.org> (галочка «Add python.exe to PATH»).
-2. Скопируйте папку `desktop` куда удобно.
-3. Запустите `start.cmd` двойным кликом.
-4. При первом запуске он создаст `.env` и откроет его в Блокноте. Впишите:
+### Вариант А — готовая сборка (Python не нужен)
+
+1. Скачайте `tgrelay.exe` из
+   [Releases](https://github.com/mikech76/tgrelay/releases).
+2. Положите в любую пустую папку (туда же запишутся `.env` и лог) и запустите.
+3. При первом запуске он создаст `.env` и откроет его в Блокноте. Впишите:
    - строки `PROXY=` — ваши HTTP-прокси, по одной на строку;
-   - `SECRET` оставьте пустым — программа сама предложит сгенерировать ключ.
-5. Сохраните, запустите `start.cmd` снова.
+   - `SECRET` оставьте пустым — он сгенерируется автоматически.
+4. Сохраните и запустите `tgrelay.exe` снова.
 
 В трее появится иконка. Правый клик:
 
@@ -36,10 +38,59 @@ MTProto-часть расшифровывает handshake (так устроен
 - **Copy SOCKS link (моб. сеть)** — ссылка с внешним именем (см. ниже);
 - **QR** — то же самое в виде QR-кода.
 
-Автозапуск: положите ярлык на `run.pyw` в папку автозагрузки
+Автозапуск: положите ярлык на `tgrelay.exe` в папку автозагрузки
 (`Win+R` → `shell:startup`).
 
+### Вариант Б — из исходников (Python)
+
+1. Установите Python 3 с <https://python.org> (галочка «Add python.exe to PATH»).
+2. Скопируйте папку `desktop` куда удобно.
+3. Запустите `start.cmd` двойным кликом.
+4. При первом запуске он создаст `.env` и откроет его в Блокноте. Впишите:
+   - строки `PROXY=` — ваши HTTP-прокси, по одной на строку;
+   - `SECRET` оставьте пустым — программа сама предложит сгенерировать ключ.
+5. Сохраните, запустите `start.cmd` снова.
+
 ## Linux: установка
+
+### Вариант А — готовый бинарник (Python не нужен)
+
+```bash
+chmod +x tgrelay-linux-x86_64
+./tgrelay-linux-x86_64      # создаст .env рядом и подскажет, что делать
+nano .env                   # PROXY= + SECRET (или оставьте пустым)
+./tgrelay-linux-x86_64      # запуск заново
+```
+
+Работает на Debian 10+, Ubuntu 18.04+, CentOS 8+, Fedora 28+ (x86_64).
+
+Как служба — создайте `/etc/systemd/system/tgrelay.service`:
+
+```ini
+[Unit]
+Description=tgrelay: MTProto + SOCKS5 proxy for Telegram
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOURUSER
+WorkingDirectory=/opt/tgrelay
+ExecStart=/opt/tgrelay/tgrelay-linux-x86_64
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now tgrelay
+journalctl -u tgrelay -f
+```
+
+### Вариант Б — из исходников install-linux.sh
 
 ```bash
 cd desktop

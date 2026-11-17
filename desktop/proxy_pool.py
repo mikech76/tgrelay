@@ -8,14 +8,16 @@ import time
 
 from dotenv import dotenv_values
 
+from appdir import app_dir
+
 logger = logging.getLogger(__name__)
 
 def _env_path():
-    here = os.path.dirname(os.path.abspath(__file__))
+    here = app_dir()
     for path in (os.path.join(os.getcwd(), '.env'), os.path.join(here, '.env')):
         if os.path.exists(path):
             return path
-    return os.path.join(os.getcwd(), '.env')
+    return os.path.join(here, '.env')
 
 ENV_PATH = _env_path()
 config = dotenv_values(ENV_PATH)

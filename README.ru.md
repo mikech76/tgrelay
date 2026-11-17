@@ -45,6 +45,14 @@ Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → прок
 
 ## Компьютер (Windows / Linux)
 
+Готовые сборки из **Releases** (Python не нужен):
+
+- Windows: скачайте `tgrelay.exe`, положите в любую пустую папку, запустите —
+  он сам создаст `.env` и откроет его для правки.
+- Linux: скачайте `tgrelay-linux-x86_64`, `chmod +x`, запустите — то же самое.
+
+Из исходников:
+
 Windows:
 
 ```bat

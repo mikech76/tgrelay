@@ -22,13 +22,16 @@ address and port.
 
 ## Windows: quick start
 
-1. Install Python 3 from <https://python.org> (check "Add python.exe to PATH").
-2. Copy the `desktop` folder anywhere.
-3. Double-click `start.cmd`.
-4. On the first run it creates `.env` and opens it in Notepad. Fill in:
+### Option A — ready-made build (no Python needed)
+
+1. Download `tgrelay.exe` from
+   [Releases](https://github.com/mikech76/tgrelay/releases).
+2. Put it into any empty folder (it writes `.env` and the log next to itself)
+   and run it.
+3. On the first run it creates `.env` and opens it in Notepad. Fill in:
    - `PROXY=` lines — your HTTP proxies, one per line;
-   - leave `SECRET` empty — the program will offer to generate it.
-5. Save, run `start.cmd` again.
+   - leave `SECRET` empty — it is generated automatically.
+4. Save and run `tgrelay.exe` again.
 
 A tray icon appears. Right click it:
 
@@ -37,10 +40,59 @@ A tray icon appears. Right click it:
 - **Copy SOCKS link (моб. сеть)** — link with the external name (see below);
 - **QR** — the same as a QR code.
 
-Autostart: put a shortcut to `run.pyw` into the Startup folder
+Autostart: put a shortcut to `tgrelay.exe` into the Startup folder
 (`Win+R` → `shell:startup`).
 
+### Option B — from source (Python)
+
+1. Install Python 3 from <https://python.org> (check "Add python.exe to PATH").
+2. Copy the `desktop` folder anywhere.
+3. Double-click `start.cmd`.
+4. On the first run it creates `.env` and opens it in Notepad. Fill in:
+   - `PROXY=` lines — your HTTP proxies, one per line;
+   - leave `SECRET` empty — the program will offer to generate it.
+5. Save, run `start.cmd` again.
+
 ## Linux: installation
+
+### Option A — ready-made binary (no Python needed)
+
+```bash
+chmod +x tgrelay-linux-x86_64
+./tgrelay-linux-x86_64      # creates .env next to itself and prints what to do
+nano .env                   # PROXY= + SECRET (or leave it empty)
+./tgrelay-linux-x86_64      # run again
+```
+
+Works on Debian 10+, Ubuntu 18.04+, CentOS 8+, Fedora 28+ (x86_64).
+
+To run it as a service, create `/etc/systemd/system/tgrelay.service`:
+
+```ini
+[Unit]
+Description=tgrelay: MTProto + SOCKS5 proxy for Telegram
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOURUSER
+WorkingDirectory=/opt/tgrelay
+ExecStart=/opt/tgrelay/tgrelay-linux-x86_64
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now tgrelay
+journalctl -u tgrelay -f
+```
+
+### Option B — from source with install-linux.sh
 
 ```bash
 cd desktop

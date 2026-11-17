@@ -44,6 +44,14 @@ Details: [app/README.md](app/README.md).
 
 ## Desktop (Windows / Linux)
 
+Ready-made builds from **Releases** (no Python needed):
+
+- Windows: download `tgrelay.exe`, put it into any empty folder, run it —
+  it creates `.env` and opens it for editing.
+- Linux: download `tgrelay-linux-x86_64`, `chmod +x`, run — same story.
+
+From source:
+
 Windows:
 
 ```bat

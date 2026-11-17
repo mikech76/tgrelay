@@ -5,19 +5,21 @@ import os
 import sys
 import threading
 
+from appdir import ensure_env, fatal, log_path
+
 
 def _setup_logging():
     handlers = []
     if sys.stderr is not None:
         handlers.append(logging.StreamHandler())
 
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        'mtproxy.log')
-    try:
-        handlers.append(logging.handlers.RotatingFileHandler(
-            path, maxBytes=1_000_000, backupCount=2, encoding='utf-8'))
-    except OSError:
-        pass
+    path = log_path('tgrelay.log')
+    if path:
+        try:
+            handlers.append(logging.handlers.RotatingFileHandler(
+                path, maxBytes=1_000_000, backupCount=2, encoding='utf-8'))
+        except OSError:
+            pass
 
     logging.basicConfig(
         level=logging.DEBUG if os.environ.get('MTPROXY_DEBUG') else logging.INFO,
@@ -34,10 +36,18 @@ def run_server():
     _setup_logging()
 
     from server import start_server
-    asyncio.run(start_server())
+    try:
+        asyncio.run(start_server())
+    except Exception as exc:            # нет прокси, занят порт и т.п.
+        logging.getLogger(__name__).exception("server failed")
+        fatal(str(exc))
+        os._exit(1)
 
 
 def main():
+    if ensure_env() == 'created':
+        return
+
     t = threading.Thread(target=run_server, daemon=True)
     t.start()
 

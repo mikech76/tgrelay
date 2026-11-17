@@ -24,3 +24,10 @@ local.properties
 __pycache__/
 *.pyc
 *.pyo
+
+# сборка desktop (pyinstaller)
+desktop/dist/
+desktop/packaging/work/
+desktop/packaging/*.spec
+desktop/packaging/tgrelay.ico
+desktop/packaging/venv/

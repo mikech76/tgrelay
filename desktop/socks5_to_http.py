@@ -144,7 +144,8 @@ def load_env(path):
 
 def load_config():
     """Только .env. Никаких переменных окружения — всё в одном файле."""
-    here = os.path.dirname(os.path.abspath(__file__))
+    from appdir import app_dir
+    here = app_dir()
     cfg = dict(DEFAULTS)
     for name in (".env", os.path.join(here, ".env")):
         cfg.update(load_env(name))
