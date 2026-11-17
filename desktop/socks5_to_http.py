@@ -514,7 +514,8 @@ async def start(bind=None, port=None):
     targets = parse_targets(cfg.get("TEST_TARGET", DEFAULTS["TEST_TARGET"]))
     load_access(cfg)
     if not proxies:
-        raise RuntimeError("в .env нет PROXIES")
+        from i18n import t
+        raise RuntimeError(t("no_proxies"))
 
     bind = bind or cfg.get("SOCKS_HOST", DEFAULTS["SOCKS_HOST"])
     port = port or int(cfg.get("SOCKS_PORT", DEFAULTS["SOCKS_PORT"]))

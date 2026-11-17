@@ -37,8 +37,13 @@ A tray icon appears. Right click it:
 
 - **Copy MTProto link** — link for Telegram;
 - **Copy SOCKS link (Wi-Fi)** — for devices in the same network;
-- **Copy SOCKS link (моб. сеть)** — link with the external name (see below);
-- **QR** — the same as a QR code.
+- **Copy SOCKS link (mobile)** — link with the external name (see below);
+- **QR** — the same as a QR code;
+- **Language / Язык** — switch the interface between English and Russian
+  (saved to `LANG` in `.env`);
+- **Documentation** — opens the README for the current language;
+- **About** — version, author, repository link;
+- **Exit** — stop the proxies.
 
 Autostart: put a shortcut to `tgrelay.exe` into the Startup folder
 (`Win+R` → `shell:startup`).
@@ -150,12 +155,22 @@ SOCKS_PASS=
 | `SOCKS_PORT` | SOCKS5 port (default 55056) |
 | `SOCKS_HOST` | SOCKS5 listen address |
 | `SECRET` | MTProto secret; if empty, it is generated and written here |
+| `LANG` | interface language: `en` or `ru`; empty = system language |
 | `EXTERNAL_HOST` | DDNS name or external IP used in links |
 | `AUTH_BYPASS` | networks allowed to use SOCKS5 without a password |
 | `SOCKS_USER` / `SOCKS_PASS` | login/password for everyone else |
 
 The old one-line format is still supported:
 `PROXIES=user:pass@1.2.3.4:9405;5.6.7.8:8080`.
+
+### Interface language
+
+`LANG=en` or `LANG=ru` in `.env`, or leave it empty — the system language is
+used (Russian Windows → Russian, everything else → English). The tray menu
+item **Language / Язык** switches it instantly and writes the value into `.env`.
+
+The very first message (when `.env` is created) is shown in both languages,
+because the language is not known yet. Everything after that follows `LANG`.
 
 ### Comments in `.env`
 
@@ -182,11 +197,12 @@ before it when disabling a single entry inside a list.
 The secret is 32 hex characters (16 bytes). It is not a password but key
 material: anyone who knows it can use your proxy.
 
-If `SECRET` is empty, on the first launch the program asks:
+If `SECRET` is empty, on the first launch the program asks (the wording
+follows `LANG` / the system language):
 
 ```
-В .env не задан SECRET для MTProto-прокси.
-Сгенерировать новый ключ? [Y/n]:
+SECRET is not set in .env for the MTProto proxy.
+Generate a new key? [Y/n]:
 ```
 
 Answer `Y` (or press Enter) and the key is generated and written into `.env`.

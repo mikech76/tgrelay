@@ -9,6 +9,7 @@ import time
 from dotenv import dotenv_values
 
 from appdir import app_dir
+from i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -238,25 +239,24 @@ def load_secret():
     answer = ''
     if sys.stdin is not None and sys.stdin.isatty():
         print()
-        print("В .env не задан SECRET для MTProto-прокси.")
+        print(t('secret_missing'))
         try:
-            answer = input("Сгенерировать новый ключ? [Y/n]: ").strip().lower()
+            answer = input(t('secret_ask')).strip().lower()
         except (EOFError, KeyboardInterrupt):
             answer = ''
         if answer in ('n', 'no', 'н', 'нет'):
-            print("Хорошо. Впишите свой SECRET в .env и запустите снова.")
-            print("Сгенерировать вручную: "
-                  "python -c \"import secrets; print(secrets.token_hex(16))\"")
+            print(t('secret_declined'))
+            print(t('secret_manual'))
             raise SystemExit(1)
 
     raw = _secrets.token_hex(16)
     try:
         save_env_value('SECRET', raw)
-        logger.info("SECRET сгенерирован и записан в .env")
-        print(f"SECRET сгенерирован и записан в .env: {raw}")
+        logger.info("SECRET generated and saved to .env")
+        print(t('secret_written', secret=raw))
     except OSError as e:
-        logger.warning("SECRET сгенерирован, но записать в .env не удалось: %s", e)
-        print(f"SECRET сгенерирован (не сохранён): {raw}")
+        logger.warning("SECRET generated, but could not save it to .env: %s", e)
+        print(t('secret_not_saved', secret=raw))
     config['SECRET'] = raw
     return bytes.fromhex(raw)
 

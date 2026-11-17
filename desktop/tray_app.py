@@ -2,14 +2,24 @@ import io
 import os
 import threading
 import tkinter as tk
+import webbrowser
 
 import pystray
 import pyperclip
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 
+import i18n
 import socks5_to_http
-from proxy_pool import config, get_external_ip
+from i18n import t
+from proxy_pool import config, get_external_ip, save_env_value
+
+VERSION = '1.1'
+REPO_URL = 'https://github.com/mikech76/tgrelay'
+DOCS = {
+    'en': REPO_URL + '/blob/main/desktop/README.md',
+    'ru': REPO_URL + '/blob/main/desktop/README.ru.md',
+}
 
 
 def _make_icon():
@@ -58,49 +68,90 @@ class QRWindow:
         root.mainloop()
 
 
+def about_window():
+    from tkinter import messagebox
+    root = tk.Tk()
+    root.withdraw()
+    messagebox.showinfo(
+        t('about_title'),
+        t('about_text', version=VERSION, repo=REPO_URL),
+        parent=root)
+    root.destroy()
+
+
 def socks_link_outside():
     """Та же ссылка, но с внешним адресом (для мобильной сети)."""
     return socks5_to_http.socks_link(host=get_external_ip())
+
+
+def _label(key):
+    """Текст пункта меню вычисляется при каждой отрисовке — язык меняется
+    на лету без пересборки меню."""
+    return lambda item: t(key)
 
 
 class TrayApp:
     def __init__(self):
         self.icon = None
 
-    def run(self):
-        menu = pystray.Menu(
-            pystray.MenuItem(
-                "Copy MTProto link",
-                lambda: self._copy(mtproto_link(), "MTProto")),
-            pystray.MenuItem(
-                "Copy SOCKS link (Wi-Fi)",
-                lambda: self._copy(socks5_to_http.socks_link(), "SOCKS5")),
-            pystray.MenuItem(
-                "Copy SOCKS link (моб. сеть)",
-                lambda: self._copy(socks_link_outside(), "SOCKS5")),
+    def _build_menu(self):
+        item = pystray.MenuItem
+
+        return pystray.Menu(
+            item(_label('copy_mtproto'),
+                 lambda: self._copy(mtproto_link(), 'MTProto')),
+            item(_label('copy_socks_wifi'),
+                 lambda: self._copy(socks5_to_http.socks_link(), 'SOCKS5')),
+            item(_label('copy_socks_mobile'),
+                 lambda: self._copy(socks_link_outside(), 'SOCKS5')),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem(
-                "MTProto QR",
-                lambda: self._qr(mtproto_link(), "MTProxy — QR")),
-            pystray.MenuItem(
-                "SOCKS QR (Wi-Fi)",
-                lambda: self._qr(socks5_to_http.socks_link(), "SOCKS5 — QR")),
-            pystray.MenuItem(
-                "SOCKS QR (моб. сеть)",
-                lambda: self._qr(socks_link_outside(), "SOCKS5 (моб.) — QR")),
+            item(_label('qr_mtproto'),
+                 lambda: self._qr(mtproto_link(), 'MTProto — QR')),
+            item(_label('qr_socks_wifi'),
+                 lambda: self._qr(socks5_to_http.socks_link(), 'SOCKS5 — QR')),
+            item(_label('qr_socks_mobile'),
+                 lambda: self._qr(socks_link_outside(), 'SOCKS5 — QR')),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Exit", self._on_exit),
+            item(_label('menu_language'), pystray.Menu(
+                item('English', lambda: self._set_lang('en'),
+                     checked=lambda _: i18n.lang() == 'en', radio=True),
+                item('Русский', lambda: self._set_lang('ru'),
+                     checked=lambda _: i18n.lang() == 'ru', radio=True),
+            )),
+            item(_label('menu_docs'), self._open_docs),
+            item(_label('menu_about'), self._show_about),
+            pystray.Menu.SEPARATOR,
+            item(_label('menu_exit'), self._on_exit),
         )
-        self.icon = pystray.Icon("MTProxy", _make_icon(),
-                                 "MTProxy + SOCKS5", menu)
+
+    def run(self):
+        self.icon = pystray.Icon("tgrelay", _make_icon(),
+                                 t('tray_tooltip'), self._build_menu())
         self.icon.run()
+
+    def _set_lang(self, value):
+        i18n.set_lang(value)
+        try:
+            save_env_value('LANG', value)
+        except OSError:
+            pass
+        try:
+            self.icon.update_menu()
+        except Exception:
+            pass
+
+    def _open_docs(self):
+        webbrowser.open(DOCS.get(i18n.lang(), DOCS['en']))
+
+    def _show_about(self):
+        threading.Thread(target=about_window, daemon=True).start()
 
     def _copy(self, link, name):
         try:
             pyperclip.copy(link)
-            self.icon.notify(f"{link}", f"{name} — скопировано")
+            self.icon.notify(link, t('copied', name=name))
         except Exception as e:
-            self.icon.notify(f"Не скопировалось: {e}", name)
+            self.icon.notify(t('copy_failed', err=e), name)
 
     def _qr(self, link, title):
         threading.Thread(target=QRWindow(link, title).show, daemon=True).start()

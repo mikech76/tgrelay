@@ -81,11 +81,14 @@ def ensure_env():
         return 'ok'
 
     msg = ("tgrelay\n\n"
-           "Создан файл настроек:\n"
+           "Создан файл настроек / Config file created:\n"
            f"{written}\n\n"
-           "Впишите в него строки PROXY= (ваши HTTP-прокси), сохраните\n"
-           "и запустите программу заново.\n"
-           "SECRET будет сгенерирован автоматически.")
+           "RU: впишите строки PROXY= (ваши HTTP-прокси), сохраните\n"
+           "    и запустите программу заново.\n"
+           "EN: fill in PROXY= lines (your HTTP proxies), save the file\n"
+           "    and run the program again.\n\n"
+           "SECRET / LANG — заполнятся автоматически / filled in "
+           "automatically.")
     print(msg, flush=True)
     if sys.platform == 'win32':
         try:
@@ -102,17 +105,13 @@ def ensure_env():
 
 def fatal(text):
     """Нечего запускать (нет прокси, занят порт) — сказать и выйти."""
+    from i18n import t          # локальный импорт: i18n сам импортирует appdir
+    body = t('fatal_body', err=text)
     if sys.platform == 'win32':
         try:
             import ctypes
-            ctypes.windll.user32.MessageBoxW(
-                None, f"tgrelay не запустился:\n\n{text}\n\n"
-                      "Проверьте файл .env (строки PROXY=) и запустите "
-                      "программу заново.",
-                'tgrelay', 0x10)
+            ctypes.windll.user32.MessageBoxW(None, body, t('fatal_title'), 0x10)
         except Exception:
             pass
     else:
-        print(f"tgrelay не запустился: {text}", file=sys.stderr, flush=True)
-        print("Проверьте файл .env (строки PROXY=) и запустите заново.",
-              file=sys.stderr, flush=True)
+        print(body, file=sys.stderr, flush=True)

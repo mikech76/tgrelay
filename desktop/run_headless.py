@@ -5,6 +5,7 @@ import os
 import sys
 
 from appdir import ensure_env, fatal, log_path
+from i18n import t
 
 
 def _setup_logging():
@@ -34,7 +35,7 @@ def main():
     try:
         asyncio.run(start_server())
     except KeyboardInterrupt:
-        print("\nОстановлено.")
+        print("\n" + t('stopped'))
     except Exception as exc:            # нет прокси, занят порт и т.п.
         logging.getLogger(__name__).exception("server failed")
         fatal(str(exc))
