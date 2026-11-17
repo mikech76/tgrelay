@@ -258,8 +258,10 @@ After a restart the tray links use this address.
 
 ## Troubleshooting
 
-Windows log: `tgrelay.log` next to the scripts.
-Linux log: `journalctl -u tgrelay -f`.
+Windows log: `tgrelay.log` next to `tgrelay.exe` (or next to the scripts
+when running from source).
+Linux log: `journalctl -u tgrelay -f` (`tgrelay.log` next to the binary
+without systemd).
 
 Check the proxy pool without starting the server:
 

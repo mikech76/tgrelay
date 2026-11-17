@@ -257,8 +257,10 @@ EXTERNAL_HOST=yourname.duckdns.org
 
 ## Диагностика
 
-Лог Windows: `tgrelay.log` рядом со скриптами.
-Лог Linux: `journalctl -u tgrelay -f`.
+Лог Windows: `tgrelay.log` рядом с `tgrelay.exe` (или рядом со скриптами,
+если запускаете из исходников).
+Лог Linux: `journalctl -u tgrelay -f` (без systemd — `tgrelay.log` рядом
+с бинарником).
 
 Проверить пул прокси без запуска сервера:
 
