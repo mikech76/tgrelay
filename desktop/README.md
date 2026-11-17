@@ -35,15 +35,15 @@ address and port.
 
 A tray icon appears. Right click it:
 
-- 📋 **Copy MTProto link** — link for Telegram;
-- 📶 **Copy SOCKS link (Wi-Fi)** — for devices in the same network;
-- 📱 **Copy SOCKS link (mobile)** — link with the external name (see below);
-- ▦ **QR** — the same as a QR code;
-- 🌐 **Language / Язык** — switch the interface between English and Russian
+- **Copy MTProto link** — link for Telegram;
+- **Copy SOCKS link (Wi-Fi)** — for devices in the same network;
+- **Copy SOCKS link (mobile)** — link with the external name (see below);
+- **QR** — the same as a QR code;
+- **Language / Язык** — switch the interface between English and Russian
   (saved to `LANG` in `.env`);
-- 📖 **Documentation** — opens the README for the current language;
-- ℹ **About** — version, author, repository link;
-- ⏻ **Exit** — stop the proxies.
+- **Documentation** — opens the README for the current language;
+- **About** — version, author, repository link;
+- **Exit** — stop the proxies.
 
 Running `tgrelay.exe` a second time does not start a duplicate: it just says
 that the program is already running and points to the tray icon.

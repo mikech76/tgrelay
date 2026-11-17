@@ -10,6 +10,7 @@ import qrcode
 from PIL import Image, ImageDraw, ImageFont
 
 import i18n
+import menu_icons
 import socks5_to_http
 from i18n import t
 from proxy_pool import config, get_external_ip, save_env_value
@@ -19,20 +20,6 @@ REPO_URL = 'https://github.com/mikech76/tgrelay'
 DOCS = {
     'en': REPO_URL + '/blob/main/desktop/README.md',
     'ru': REPO_URL + '/blob/main/desktop/README.ru.md',
-}
-
-# pystray не умеет картинки в пунктах меню — берём символы Segoe UI.
-ICONS = {
-    'copy_mtproto': '📋',
-    'copy_socks_wifi': '📶',
-    'copy_socks_mobile': '📱',
-    'qr_mtproto': '▦',
-    'qr_socks_wifi': '▦',
-    'qr_socks_mobile': '▦',
-    'menu_language': '🌐',
-    'menu_docs': '📖',
-    'menu_about': 'ℹ',
-    'menu_exit': '⏻',
 }
 
 
@@ -100,44 +87,52 @@ def socks_link_outside():
 
 def _label(key):
     """Текст пункта меню вычисляется при каждой отрисовке — язык меняется
-    на лету без пересборки меню. Иконка — символ Segoe UI перед текстом."""
-    icon = ICONS.get(key)
-    return lambda item: f"{icon} {t(key)}" if icon else t(key)
+    на лету без пересборки меню. Иконка рисуется отдельно (menu_icons)."""
+    return lambda item: t(key)
 
 
 class TrayApp:
     def __init__(self):
         self.icon = None
+        self._item_keys = {}          # id(MenuItem) -> ключ иконки
+
+    def _item(self, key, action, **kwargs):
+        """Пункт меню с цветной иконкой (текст берётся из i18n)."""
+        entry = pystray.MenuItem(_label(key), action, **kwargs)
+        self._item_keys[id(entry)] = key
+        return entry
 
     def _build_menu(self):
         item = pystray.MenuItem
 
-        return pystray.Menu(
-            item(_label('copy_mtproto'),
-                 lambda: self._copy(mtproto_link(), 'MTProto')),
-            item(_label('copy_socks_wifi'),
-                 lambda: self._copy(socks5_to_http.socks_link(), 'SOCKS5')),
-            item(_label('copy_socks_mobile'),
-                 lambda: self._copy(socks_link_outside(), 'SOCKS5')),
+        menu = pystray.Menu(
+            self._item('copy_mtproto',
+                       lambda: self._copy(mtproto_link(), 'MTProto')),
+            self._item('copy_socks_wifi',
+                       lambda: self._copy(socks5_to_http.socks_link(), 'SOCKS5')),
+            self._item('copy_socks_mobile',
+                       lambda: self._copy(socks_link_outside(), 'SOCKS5')),
             pystray.Menu.SEPARATOR,
-            item(_label('qr_mtproto'),
-                 lambda: self._qr(mtproto_link(), 'MTProto — QR')),
-            item(_label('qr_socks_wifi'),
-                 lambda: self._qr(socks5_to_http.socks_link(), 'SOCKS5 — QR')),
-            item(_label('qr_socks_mobile'),
-                 lambda: self._qr(socks_link_outside(), 'SOCKS5 — QR')),
+            self._item('qr_mtproto',
+                       lambda: self._qr(mtproto_link(), 'MTProto — QR')),
+            self._item('qr_socks_wifi',
+                       lambda: self._qr(socks5_to_http.socks_link(), 'SOCKS5 — QR')),
+            self._item('qr_socks_mobile',
+                       lambda: self._qr(socks_link_outside(), 'SOCKS5 — QR')),
             pystray.Menu.SEPARATOR,
-            item(_label('menu_language'), pystray.Menu(
+            self._item('menu_language', pystray.Menu(
                 item('English', lambda: self._set_lang('en'),
                      checked=lambda _: i18n.lang() == 'en', radio=True),
                 item('Русский', lambda: self._set_lang('ru'),
                      checked=lambda _: i18n.lang() == 'ru', radio=True),
             )),
-            item(_label('menu_docs'), self._open_docs),
-            item(_label('menu_about'), self._show_about),
+            self._item('menu_docs', self._open_docs),
+            self._item('menu_about', self._show_about),
             pystray.Menu.SEPARATOR,
-            item(_label('menu_exit'), self._on_exit),
+            self._item('menu_exit', self._on_exit),
         )
+        menu_icons.install(self._item_keys)
+        return menu
 
     def run(self):
         self.icon = pystray.Icon("tgrelay", _make_icon(),
