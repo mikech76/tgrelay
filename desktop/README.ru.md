@@ -33,6 +33,8 @@ MTProto-часть расшифровывает handshake (так устроен
 
 В трее появится иконка. Правый клик:
 
+![Меню в трее Windows](docs/tray-menu.png)
+
 - **Copy MTProto link** — ссылка для Telegram;
 - **Copy SOCKS link (Wi-Fi)** — для устройств в той же сети;
 - **Copy SOCKS link (моб. сеть)** — ссылка с внешним именем (см. ниже);

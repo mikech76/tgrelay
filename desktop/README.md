@@ -35,6 +35,8 @@ address and port.
 
 A tray icon appears. Right click it:
 
+![Windows tray menu](docs/tray-menu.png)
+
 - **Copy MTProto link** — link for Telegram;
 - **Copy SOCKS link (Wi-Fi)** — for devices in the same network;
 - **Copy SOCKS link (mobile)** — link with the external name (see below);
