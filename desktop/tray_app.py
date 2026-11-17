@@ -21,6 +21,20 @@ DOCS = {
     'ru': REPO_URL + '/blob/main/desktop/README.ru.md',
 }
 
+# pystray не умеет картинки в пунктах меню — берём символы Segoe UI.
+ICONS = {
+    'copy_mtproto': '📋',
+    'copy_socks_wifi': '📶',
+    'copy_socks_mobile': '📱',
+    'qr_mtproto': '▦',
+    'qr_socks_wifi': '▦',
+    'qr_socks_mobile': '▦',
+    'menu_language': '🌐',
+    'menu_docs': '📖',
+    'menu_about': 'ℹ',
+    'menu_exit': '⏻',
+}
+
 
 def _make_icon():
     size = 64
@@ -86,8 +100,9 @@ def socks_link_outside():
 
 def _label(key):
     """Текст пункта меню вычисляется при каждой отрисовке — язык меняется
-    на лету без пересборки меню."""
-    return lambda item: t(key)
+    на лету без пересборки меню. Иконка — символ Segoe UI перед текстом."""
+    icon = ICONS.get(key)
+    return lambda item: f"{icon} {t(key)}" if icon else t(key)
 
 
 class TrayApp:
