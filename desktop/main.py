@@ -54,7 +54,8 @@ def _log_unhandled(exc_type, exc, tb):
 def main():
     if ensure_env() == 'created':
         return
-    if not single_instance():
+    wait = 15.0 if os.environ.get('TGRELAY_HANDOFF') else 0.0
+    if not single_instance(wait):
         notify_already_running()
         return
 

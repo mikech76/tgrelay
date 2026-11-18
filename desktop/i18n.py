@@ -1,6 +1,6 @@
 """Локализация интерфейса: English / Русский.
 
-Язык берётся из .env (LANG=en|ru). Если там пусто — из языка системы
+Язык берётся из tgrelay.txt (LANG=en|ru). Если там пусто — из языка системы
 (Windows: язык интерфейса, Linux: $LANG).
 """
 import os
@@ -8,7 +8,7 @@ import sys
 
 from dotenv import dotenv_values
 
-from appdir import app_dir
+from appdir import find_config
 
 LANGS = ('en', 'ru')
 
@@ -18,34 +18,48 @@ STRINGS = {
         'en': 'tgrelay: MTProto + SOCKS5',
         'ru': 'tgrelay: MTProto + SOCKS5',
     },
-    'copy_mtproto': {
-        'en': 'Copy MTProto link',
-        'ru': 'Копировать ссылку MTProto',
+    'copy_link_at': {
+        'en': 'Copy link — {host}',
+        'ru': 'Копировать ссылку — {host}',
     },
-    'copy_socks_wifi': {
-        'en': 'Copy SOCKS link (Wi-Fi)',
-        'ru': 'Копировать ссылку SOCKS (Wi-Fi)',
-    },
-    'copy_socks_mobile': {
-        'en': 'Copy SOCKS link (mobile)',
-        'ru': 'Копировать ссылку SOCKS (моб. сеть)',
-    },
-    'qr_mtproto': {
-        'en': 'MTProto QR',
-        'ru': 'QR: MTProto',
-    },
-    'qr_socks_wifi': {
-        'en': 'SOCKS QR (Wi-Fi)',
-        'ru': 'QR: SOCKS (Wi-Fi)',
-    },
-    'qr_socks_mobile': {
-        'en': 'SOCKS QR (mobile)',
-        'ru': 'QR: SOCKS (моб. сеть)',
+    'qr_link_at': {
+        'en': 'Show QR code — {host}',
+        'ru': 'Показать QR-код — {host}',
     },
     'menu_language': {
         'en': 'Language',
         'ru': 'Язык',
     },
+    'menu_settings': {
+        'en': 'Settings — tgrelay.txt',
+        'ru': 'Настройки — tgrelay.txt',
+    },
+    'settings_saved': {
+        'en': 'Settings applied — restarting…',
+        'ru': 'Настройки применены — перезапуск…',
+    },
+    'settings_restart_later': {
+        'en': 'Settings saved. The restart will happen after you close '
+              'the editor.',
+        'ru': 'Настройки сохранены. Перезапуск — после закрытия редактора.',
+    },
+    # строки состояния в меню трея
+    'status_proxies': {
+        'en': '{alive}/{total} proxies · {conns} connections',
+        'ru': 'Прокси {alive}/{total} · соединений {conns}',
+    },
+    'status_speed': {
+        'en': '↓ {down}/s    ↑ {up}/s',
+        'ru': '↓ {down}/с    ↑ {up}/с',
+    },
+    'status_total': {
+        'en': 'since start ↓ {down}    ↑ {up}',
+        'ru': 'всего ↓ {down}    ↑ {up}',
+    },
+    'unit_b': {'en': 'B', 'ru': 'Б'},
+    'unit_kb': {'en': 'KB', 'ru': 'КБ'},
+    'unit_mb': {'en': 'MB', 'ru': 'МБ'},
+    'unit_gb': {'en': 'GB', 'ru': 'ГБ'},
     'menu_docs': {
         'en': 'Documentation',
         'ru': 'Документация',
@@ -90,9 +104,9 @@ STRINGS = {
     # первый запуск и критичные ошибки
     'fatal_body': {
         'en': ('tgrelay failed to start:\n\n{err}\n\n'
-               'Check PROXY= lines in .env and start the program again.'),
+               'Check PROXY= lines in tgrelay.txt and start the program again.'),
         'ru': ('tgrelay не запустился:\n\n{err}\n\n'
-               'Проверьте строки PROXY= в .env и запустите программу заново.'),
+               'Проверьте строки PROXY= в tgrelay.txt и запустите программу заново.'),
     },
     'fatal_title': {
         'en': 'tgrelay',
@@ -110,16 +124,16 @@ STRINGS = {
     },
     # секрет MTProto
     'secret_missing': {
-        'en': 'SECRET is not set in .env for the MTProto proxy.',
-        'ru': 'В .env не задан SECRET для MTProto-прокси.',
+        'en': 'SECRET is not set in tgrelay.txt for the MTProto proxy.',
+        'ru': 'В tgrelay.txt не задан SECRET для MTProto-прокси.',
     },
     'secret_ask': {
         'en': 'Generate a new key? [Y/n]: ',
         'ru': 'Сгенерировать новый ключ? [Y/n]: ',
     },
     'secret_declined': {
-        'en': 'OK. Put your own SECRET into .env and run again.',
-        'ru': 'Хорошо. Впишите свой SECRET в .env и запустите снова.',
+        'en': 'OK. Put your own SECRET into tgrelay.txt and run again.',
+        'ru': 'Хорошо. Впишите свой SECRET в tgrelay.txt и запустите снова.',
     },
     'secret_manual': {
         'en': ('Generate one manually: python -c "import secrets; '
@@ -128,8 +142,8 @@ STRINGS = {
                'print(secrets.token_hex(16))"'),
     },
     'secret_written': {
-        'en': 'SECRET generated and saved to .env: {secret}',
-        'ru': 'SECRET сгенерирован и записан в .env: {secret}',
+        'en': 'SECRET generated and saved to tgrelay.txt: {secret}',
+        'ru': 'SECRET сгенерирован и записан в tgrelay.txt: {secret}',
     },
     'secret_not_saved': {
         'en': 'SECRET generated (not saved): {secret}',
@@ -137,8 +151,14 @@ STRINGS = {
     },
     # прочее
     'no_proxies': {
-        'en': 'no PROXIES in .env',
-        'ru': 'в .env нет PROXIES',
+        'en': 'no PROXIES in tgrelay.txt',
+        'ru': 'в tgrelay.txt нет PROXIES',
+    },
+    'no_protocols': {
+        'en': ('both protocols are disabled in tgrelay.txt '
+               '(PROXY_PORT and SOCKS_PORT) — nothing to start'),
+        'ru': ('оба протокола отключены в tgrelay.txt '
+               '(PROXY_PORT и SOCKS_PORT) — запускать нечего'),
     },
     'stopped': {
         'en': 'Stopped.',
@@ -150,16 +170,14 @@ _cache = {}
 
 
 def _env_lang():
-    for directory in (os.getcwd(), app_dir()):
-        path = os.path.join(directory, '.env')
-        if not os.path.exists(path):
-            continue
-        try:
-            value = (dotenv_values(path).get('LANG') or '').strip().lower()
-        except Exception:
-            return ''
-        return value if value in LANGS else ''
-    return ''
+    path = find_config()
+    if not path:
+        return ''
+    try:
+        value = (dotenv_values(path).get('LANG') or '').strip().lower()
+    except Exception:
+        return ''
+    return value if value in LANGS else ''
 
 
 def _system_lang():
@@ -187,7 +205,7 @@ def lang():
 
 
 def set_lang(value):
-    """Запомнить язык в памяти (в .env пишет вызывающая сторона)."""
+    """Запомнить язык в памяти (в конфиг пишет вызывающая сторона)."""
     if value in LANGS:
         _cache['lang'] = value
 

@@ -19,12 +19,16 @@ python3 -m venv venv
 ./venv/bin/pip install --upgrade pip >/dev/null
 ./venv/bin/pip install -r requirements.txt
 
-if [ ! -f .env ]; then
-    cp .env.example .env
-    echo
-    echo "Создан .env. Впишите SECRET и PROXIES, затем запустите скрипт снова:"
-    echo "  nano $DIR/.env"
-    exit 1
+if [ ! -f tgrelay.txt ]; then
+    if [ -f .env ]; then
+        mv .env tgrelay.txt
+    else
+        cp tgrelay.example.txt tgrelay.txt
+        echo
+        echo "Создан tgrelay.txt. Впишите SECRET и PROXIES, затем запустите скрипт снова:"
+        echo "  nano $DIR/tgrelay.txt"
+        exit 1
+    fi
 fi
 
 echo "== systemd =="
@@ -53,4 +57,4 @@ systemctl --no-pager --lines=20 status tgrelay || true
 
 echo
 echo "Готово. Логи: journalctl -u tgrelay -f"
-echo "Порты и прокси: $DIR/.env"
+echo "Порты и прокси: $DIR/tgrelay.txt"

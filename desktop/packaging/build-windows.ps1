@@ -30,7 +30,7 @@ Write-Host "== building exe =="
 & $py -m PyInstaller --noconfirm --clean --onefile --windowed `
     --name tgrelay `
     --icon "$root\packaging\tgrelay.ico" `
-    --add-data "$root\.env.example;." `
+    --add-data "$root\tgrelay.example.txt;." `
     --hidden-import pystray._win32 `
     --specpath packaging --workpath packaging\work --distpath dist `
     main.py

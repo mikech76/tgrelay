@@ -26,9 +26,9 @@ address and port.
 
 1. Download `tgrelay.exe` from
    [Releases](https://github.com/mikech76/tgrelay/releases).
-2. Put it into any empty folder (it writes `.env` and the log next to itself)
+2. Put it into any empty folder (it writes `tgrelay.txt` and the log next to itself)
    and run it.
-3. On the first run it creates `.env` and opens it in Notepad. Fill in:
+3. On the first run it creates `tgrelay.txt` and opens it in Notepad. Fill in:
    - `PROXY=` lines — your HTTP proxies, one per line;
    - leave `SECRET` empty — it is generated automatically.
 4. Save and run `tgrelay.exe` again.
@@ -37,12 +37,18 @@ A tray icon appears. Right click it:
 
 ![Windows tray menu](docs/tray-menu.png)
 
-- **Copy MTProto link** — link for Telegram;
-- **Copy SOCKS link (Wi-Fi)** — for devices in the same network;
-- **Copy SOCKS link (mobile)** — link with the external name (see below);
-- **QR** — the same as a QR code;
+The first lines are live status, not clickable: which protocols are up and
+on which ports, how many proxies are alive, open connections, current speed
+and total traffic since the start.
+
+- **MTProto :55055**, **SOCKS5 :55056** — a submenu for each enabled protocol:
+  - **Copy link — <address>** and **Show QR code — <address>** for the local
+    address (the computer's address in your network);
+  - the same pair for `EXTERNAL_HOST`, shown only if it is set in the config;
+- **Settings** — opens `tgrelay.txt` in Notepad; save the file and close
+  Notepad, and the program restarts itself with the new settings;
 - **Language / Язык** — switch the interface between English and Russian
-  (saved to `LANG` in `.env`);
+  (saved to `LANG` in `tgrelay.txt`);
 - **Documentation** — opens the README for the current language;
 - **About** — version, author, repository link;
 - **Exit** — stop the proxies.
@@ -58,7 +64,7 @@ Autostart: put a shortcut to `tgrelay.exe` into the Startup folder
 1. Install Python 3 from <https://python.org> (check "Add python.exe to PATH").
 2. Copy the `desktop` folder anywhere.
 3. Double-click `start.cmd`.
-4. On the first run it creates `.env` and opens it in Notepad. Fill in:
+4. On the first run it creates `tgrelay.txt` and opens it in Notepad. Fill in:
    - `PROXY=` lines — your HTTP proxies, one per line;
    - leave `SECRET` empty — the program will offer to generate it.
 5. Save, run `start.cmd` again.
@@ -69,8 +75,8 @@ Autostart: put a shortcut to `tgrelay.exe` into the Startup folder
 
 ```bash
 chmod +x tgrelay-linux-x86_64
-./tgrelay-linux-x86_64      # creates .env next to itself and prints what to do
-nano .env                   # PROXY= + SECRET (or leave it empty)
+./tgrelay-linux-x86_64      # creates tgrelay.txt next to itself and prints what to do
+nano tgrelay.txt                   # PROXY= + SECRET (or leave it empty)
 ./tgrelay-linux-x86_64      # run again
 ```
 
@@ -107,8 +113,8 @@ journalctl -u tgrelay -f
 ```bash
 cd desktop
 chmod +x install-linux.sh
-./install-linux.sh        # creates venv, installs deps, asks for .env
-nano .env                 # proxies + secret
+./install-linux.sh        # creates venv, installs deps, asks for tgrelay.txt
+nano tgrelay.txt                 # proxies + secret
 ./install-linux.sh        # second run installs the systemd service
 ```
 
@@ -126,7 +132,7 @@ Run manually without systemd:
 ./venv/bin/python run_headless.py
 ```
 
-## Settings: one `.env` file
+## Settings: one `tgrelay.txt` file
 
 Everything is in one file — proxies, ports, external name. No environment variables.
 
@@ -156,8 +162,8 @@ SOCKS_PASS=
 | Key | Meaning |
 |---|---|
 | `PROXY` | one HTTP CONNECT proxy per line (`login:password@host:port` or `host:port`) |
-| `PROXY_PORT` | MTProto port (default 55055) |
-| `SOCKS_PORT` | SOCKS5 port (default 55056) |
+| `PROXY_PORT` | MTProto port (default 55055); comment the line out, set `off` or leave it empty to disable MTProto |
+| `SOCKS_PORT` | SOCKS5 port (default 55056); same — disables SOCKS5 entirely |
 | `SOCKS_HOST` | SOCKS5 listen address |
 | `SECRET` | MTProto secret; if empty, it is generated and written here |
 | `LANG` | interface language: `en` or `ru`; empty = system language |
@@ -168,16 +174,23 @@ SOCKS_PASS=
 The old one-line format is still supported:
 `PROXIES=user:pass@1.2.3.4:9405;5.6.7.8:8080`.
 
+A protocol with a disabled port does not start at all, and its tray items
+(copy link, QR) disappear from the menu. If both are disabled, the program
+says there is nothing to start.
+
+An old config from previous versions (the file used to be named `.env`) is
+picked up and renamed automatically on the first run.
+
 ### Interface language
 
-`LANG=en` or `LANG=ru` in `.env`, or leave it empty — the system language is
+`LANG=en` or `LANG=ru` in `tgrelay.txt`, or leave it empty — the system language is
 used (Russian Windows → Russian, everything else → English). The tray menu
-item **Language / Язык** switches it instantly and writes the value into `.env`.
+item **Language / Язык** switches it instantly and writes the value into `tgrelay.txt`.
 
-The very first message (when `.env` is created) is shown in both languages,
+The very first message (when `tgrelay.txt` is created) is shown in both languages,
 because the language is not known yet. Everything after that follows `LANG`.
 
-### Comments in `.env`
+### Comments in `tgrelay.txt`
 
 ```ini
 # a whole line is a comment
@@ -206,15 +219,15 @@ If `SECRET` is empty, on the first launch the program asks (the wording
 follows `LANG` / the system language):
 
 ```
-SECRET is not set in .env for the MTProto proxy.
+SECRET is not set in tgrelay.txt for the MTProto proxy.
 Generate a new key? [Y/n]:
 ```
 
-Answer `Y` (or press Enter) and the key is generated and written into `.env`.
+Answer `Y` (or press Enter) and the key is generated and written into `tgrelay.txt`.
 If you answer `n`, the program stops so you can set your own value.
 
 Under a GUI/service (no console) the key is generated automatically and written
-to `.env`.
+to `tgrelay.txt`.
 
 ## Connecting Telegram
 
@@ -253,7 +266,7 @@ Pin the computer's address in DHCP, otherwise it changes after a reboot.
 - <https://www.duckdns.org> — free, gives a name like `yourname.duckdns.org`;
 - <https://www.noip.com> — free tier as well.
 
-Put the name into `.env`:
+Put the name into `tgrelay.txt`:
 
 ```ini
 EXTERNAL_HOST=yourname.duckdns.org

@@ -1,6 +1,9 @@
 import io
 import os
+import subprocess
+import sys
 import threading
+import time
 import tkinter as tk
 import webbrowser
 
@@ -9,11 +12,14 @@ import pyperclip
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 
+import appdir
 import i18n
 import menu_icons
 import socks5_to_http
+import status
 from i18n import t
-from proxy_pool import config, get_external_ip, save_env_value
+from proxy_pool import (config, external_host, lan_ip, port_value,
+                        save_env_value)
 
 VERSION = '1.1'
 REPO_URL = 'https://github.com/mikech76/tgrelay'
@@ -40,11 +46,10 @@ def _make_icon():
     return img
 
 
-def mtproto_link():
-    ip = get_external_ip()
-    port = config.get('PROXY_PORT', '1985')
+def mtproto_link(host=None):
+    port = port_value('PROXY_PORT', 55055)
     secret = config.get('SECRET', '').replace(' ', '').replace('-', '')
-    return f"tg://proxy?server={ip}&port={port}&secret={secret}"
+    return f"tg://proxy?server={host or lan_ip()}&port={port}&secret={secret}"
 
 
 class QRWindow:
@@ -80,9 +85,39 @@ def about_window():
     root.destroy()
 
 
-def socks_link_outside():
-    """Та же ссылка, но с внешним адресом (для мобильной сети)."""
-    return socks5_to_http.socks_link(host=get_external_ip())
+def _socks_local_host():
+    """Адрес, по которому SOCKS5 доступен в локальной сети."""
+    bind = (socks5_to_http.load_config().get('SOCKS_HOST') or '').strip()
+    if bind in ('', '0.0.0.0', '::'):
+        return lan_ip()
+    return bind
+
+
+def _mtime(path):
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return None
+
+
+def _restart():
+    """Запустить новый экземпляр и выйти.
+
+    Новый процесс стартует с TGRELAY_HANDOFF=1 и ждёт освобождения
+    блокировки/портов, поэтому «адрес занят» не возникает.
+    """
+    env = dict(os.environ, TGRELAY_HANDOFF='1')
+    if getattr(sys, 'frozen', False):
+        cmd = [sys.executable]
+    else:
+        cmd = [sys.executable, os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'main.py')]
+    try:
+        subprocess.Popen(cmd, env=env, close_fds=True)
+    except OSError:
+        return
+    time.sleep(0.2)
+    os._exit(0)
 
 
 def _label(key):
@@ -91,35 +126,143 @@ def _label(key):
     return lambda item: t(key)
 
 
+# --- строки состояния ------------------------------------------------------
+
+def _status_protocols(item):
+    """Какие протоколы подняты и на каких портах."""
+    parts = []
+    mt = port_value('PROXY_PORT', 55055)
+    socks = port_value('SOCKS_PORT', 55056)
+    if mt is not None:
+        parts.append(f'MTProto :{mt}')
+    if socks is not None:
+        parts.append(f'SOCKS5 :{socks}')
+    return '   ·   '.join(parts)
+
+
+def _status_proxies(item):
+    snap = status.snapshot()
+    return t('status_proxies',
+             alive=snap['proxies_alive'],
+             total=snap['proxies_total'],
+             conns=snap['conns'])
+
+
+def _status_speed(item):
+    snap = status.snapshot()
+    return t('status_speed',
+             down=status.human(snap['down_rate']),
+             up=status.human(snap['up_rate']))
+
+
+def _status_total(item):
+    snap = status.snapshot()
+    return t('status_total',
+             down=status.human(snap['down_total']),
+             up=status.human(snap['up_total']))
+
+
+def _install_menu_refresh():
+    """Пересобирать меню перед показом: счётчики всегда свежие.
+
+    pystray строит Win32-меню один раз, а значения берёт из callables
+    только при обновлении. Перед показом меню его и обновляем.
+    """
+    if sys.platform != 'win32':
+        return
+    try:
+        import pystray._win32 as backend
+    except Exception:
+        return
+    original = backend.Icon._on_notify
+    if getattr(original, '_tgrelay_fresh', False):
+        return
+
+    def patched(self, wparam, lparam):
+        try:
+            if lparam == backend.win32.WM_RBUTTONUP:
+                self.update_menu()
+        except Exception:
+            pass
+        return original(self, wparam, lparam)
+
+    patched._tgrelay_fresh = True
+    backend.Icon._on_notify = patched
+
+
+_install_menu_refresh()
+
+
 class TrayApp:
     def __init__(self):
         self.icon = None
         self._item_keys = {}          # id(MenuItem) -> ключ иконки
 
-    def _item(self, key, action, **kwargs):
+    def _item(self, key, action, visible=True, **kwargs):
         """Пункт меню с цветной иконкой (текст берётся из i18n)."""
-        entry = pystray.MenuItem(_label(key), action, **kwargs)
+        entry = pystray.MenuItem(_label(key), action, visible=visible, **kwargs)
         self._item_keys[id(entry)] = key
         return entry
 
+    def _action(self, icon_key, text, action):
+        """Пункт с произвольным текстом (callable) и общей иконкой."""
+        entry = pystray.MenuItem(text, action)
+        self._item_keys[id(entry)] = icon_key
+        return entry
+
+    def _protocol_menu(self, title, copy_icon, qr_icon, local_host, link_fn,
+                       name):
+        """Подменю протокола: локальная ссылка и внешняя (если настроена)."""
+        entries = []
+
+        def add(icon, text_key, host_fn, kind):
+            text = lambda item: t(text_key, host=host_fn())
+            if kind == 'copy':
+                action = lambda: self._copy(link_fn(host_fn()), name)
+            else:
+                action = lambda: self._qr(link_fn(host_fn()), name + ' — QR')
+            entries.append(self._action(icon, text, action))
+
+        add(copy_icon, 'copy_link_at', local_host, 'copy')
+        add(qr_icon, 'qr_link_at', local_host, 'qr')
+        if external_host():
+            add(copy_icon, 'copy_link_at', external_host, 'copy')
+            add(qr_icon, 'qr_link_at', external_host, 'qr')
+
+        return pystray.MenuItem(title, pystray.Menu(*entries))
+
     def _build_menu(self):
         item = pystray.MenuItem
+        mt_port = port_value('PROXY_PORT', 55055)
+        socks_port = port_value('SOCKS_PORT', 55056)
 
-        menu = pystray.Menu(
-            self._item('copy_mtproto',
-                       lambda: self._copy(mtproto_link(), 'MTProto')),
-            self._item('copy_socks_wifi',
-                       lambda: self._copy(socks5_to_http.socks_link(), 'SOCKS5')),
-            self._item('copy_socks_mobile',
-                       lambda: self._copy(socks_link_outside(), 'SOCKS5')),
+        def label(text):
+            """Строка состояния: серая, некликабельная."""
+            return item(text, None, enabled=False)
+
+        entries = [
+            label(_status_protocols),
+            label(_status_proxies),
+            label(_status_speed),
+            label(_status_total),
             pystray.Menu.SEPARATOR,
-            self._item('qr_mtproto',
-                       lambda: self._qr(mtproto_link(), 'MTProto — QR')),
-            self._item('qr_socks_wifi',
-                       lambda: self._qr(socks5_to_http.socks_link(), 'SOCKS5 — QR')),
-            self._item('qr_socks_mobile',
-                       lambda: self._qr(socks_link_outside(), 'SOCKS5 — QR')),
+        ]
+
+        if mt_port is not None:
+            entries.append(self._protocol_menu(
+                f'MTProto :{mt_port}', 'copy_mtproto', 'qr_mtproto',
+                lan_ip, mtproto_link, 'MTProto'))
+        if socks_port is not None:
+            entries.append(self._protocol_menu(
+                f'SOCKS5 :{socks_port}', 'copy_socks_wifi', 'qr_socks_wifi',
+                _socks_local_host,
+                lambda host: socks5_to_http.socks_link(port=socks_port,
+                                                       host=host),
+                'SOCKS5'))
+
+        entries += [
             pystray.Menu.SEPARATOR,
+            self._item('menu_settings', self._open_settings),
             self._item('menu_language', pystray.Menu(
                 item('English', lambda: self._set_lang('en'),
                      checked=lambda _: i18n.lang() == 'en', radio=True),
@@ -130,7 +273,8 @@ class TrayApp:
             self._item('menu_about', self._show_about),
             pystray.Menu.SEPARATOR,
             self._item('menu_exit', self._on_exit),
-        )
+        ]
+        menu = pystray.Menu(*entries)
         menu_icons.install(self._item_keys)
         return menu
 
@@ -152,6 +296,67 @@ class TrayApp:
 
     def _open_docs(self):
         webbrowser.open(DOCS.get(i18n.lang(), DOCS['en']))
+
+    # --- настройки ---------------------------------------------------------
+    def _open_settings(self):
+        """Открыть конфиг в Блокноте и применить изменения после правки."""
+        path = appdir.config_path()
+        before = _mtime(path)
+        try:
+            proc = subprocess.Popen(['notepad.exe', path])
+        except OSError:
+            try:
+                os.startfile(path)
+            except OSError as e:
+                self._notify(t('copy_failed', err=e))
+                return
+            return
+
+        threading.Thread(target=self._watch_settings,
+                         args=(path, before, proc), daemon=True).start()
+
+    def _watch_settings(self, path, before, proc):
+        """Ждём закрытия Блокнота и перезапускаемся, если файл изменился.
+
+        На Windows Блокнот может отдать файл уже открытому окну (вкладкой):
+        тогда процесс завершается сразу, а правка появится позже — такой
+        случай отслеживаем по времени изменения файла.
+        """
+        started = time.monotonic()
+        proc.wait()
+        quick = time.monotonic() - started < 2.0
+
+        if _mtime(path) != before:
+            self._restart_after_save()
+            return
+        if not quick:
+            return                       # открылся своим окном, правок нет
+
+        deadline = time.monotonic() + 1800        # полчаса на правку вкладки
+        while time.monotonic() < deadline:
+            time.sleep(1.0)
+            if _mtime(path) == before:
+                continue
+            # даём файлу «успокоиться»: человек может сохранять несколько раз
+            settled = _mtime(path)
+            while time.monotonic() < deadline:
+                time.sleep(1.0)
+                current = _mtime(path)
+                if current == settled:
+                    self._restart_after_save()
+                    return
+                settled = current
+
+    def _restart_after_save(self):
+        time.sleep(0.5)
+        self._notify(t('settings_saved'))
+        _restart()
+
+    def _notify(self, message):
+        try:
+            self.icon.notify(message, 'tgrelay')
+        except Exception:
+            pass
 
     def _show_about(self):
         threading.Thread(target=about_window, daemon=True).start()

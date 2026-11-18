@@ -21,9 +21,9 @@ HTTP CONNECT-прокси (с Basic-аутентификацией, как у Pr
     python socks5_to_http.py --bind 0.0.0.0  # НЕ рекомендуется
 
 В Telegram: тип SOCKS5, сервер 127.0.0.1, порт 55056,
-логин/пароль — из .env (SOCKS_USER / SOCKS_PASS), если заданы.
+логин/пароль — из tgrelay.txt (SOCKS_USER / SOCKS_PASS), если заданы.
 
-Конфиг берётся из .env рядом со скриптом (или из переменных окружения):
+Конфиг берётся из tgrelay.txt рядом со скриптом:
     PROXIES=user:pass@host:port;host:port;...
     SOCKS_PORT=55056
     SOCKS_HOST=127.0.0.1
@@ -48,6 +48,8 @@ import struct
 import sys
 import time
 from urllib.parse import quote
+
+import status
 
 log = logging.getLogger("s2h")
 
@@ -110,7 +112,7 @@ def _strip_comment(value):
 
 
 def load_env(path):
-    """Парсер .env.
+    """Парсер конфига (KEY=value).
 
     Понимает:
       KEY=value
@@ -143,12 +145,10 @@ def load_env(path):
 
 
 def load_config():
-    """Только .env. Никаких переменных окружения — всё в одном файле."""
-    from appdir import app_dir
-    here = app_dir()
+    """Только tgrelay.txt. Никаких переменных окружения — всё в одном файле."""
+    from appdir import config_path
     cfg = dict(DEFAULTS)
-    for name in (".env", os.path.join(here, ".env")):
-        cfg.update(load_env(name))
+    cfg.update(load_env(config_path()))
     return cfg
 
 
@@ -350,7 +350,7 @@ SOCKS_OK = b"\x05\x00\x00\x01" + b"\x00" * 6
 SOCKS_FAIL = b"\x05\x01\x00\x01" + b"\x00" * 6
 
 
-async def pipe(src, dst, tag=""):
+async def pipe(src, dst, tag="", up=True):
     try:
         while True:
             data = await src.read(65536)
@@ -358,6 +358,8 @@ async def pipe(src, dst, tag=""):
                 break
             dst.write(data)
             await dst.drain()
+            status.add(up=len(data) if up else 0,
+                       down=0 if up else len(data))
     except (OSError, asyncio.IncompleteReadError, ConnectionError):
         pass
     finally:
@@ -370,6 +372,7 @@ async def pipe(src, dst, tag=""):
 async def handle_client(reader, writer, pool):
     peer = writer.get_extra_info("peername")
     upstream = None
+    status.conn_open()
     try:
         ver, nmethods = await asyncio.wait_for(reader.readexactly(2), 15)
         if ver != 5:
@@ -432,14 +435,15 @@ async def handle_client(reader, writer, pool):
         log.debug("%s -> %s:%s", peer, host, port)
 
         await asyncio.gather(
-            pipe(reader, up_writer),
-            pipe(up_reader, writer),
+            pipe(reader, up_writer, up=True),
+            pipe(up_reader, writer, up=False),
         )
     except (asyncio.IncompleteReadError, asyncio.TimeoutError, OSError) as e:
         log.debug("%s: соединение закрыто (%s)", peer[0], type(e).__name__)
     except Exception as e:  # noqa: BLE001
         log.exception("%s: %s", peer, e)
     finally:
+        status.conn_close()
         if upstream is not None:
             try:
                 upstream.close()
@@ -539,7 +543,7 @@ async def amain(args):
         return await run_test(cfg, proxies, targets)
 
     if not proxies:
-        log.error("В .env нет PROXIES — работать некуда.")
+        log.error("В tgrelay.txt нет PROXIES — работать некуда.")
         return 2
 
     server, _pool = await start(args.bind, args.port)

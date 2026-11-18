@@ -7,7 +7,9 @@ build/
 *.keystore
 *.jks
 
-# локальные списки прокси (не публиковать!)
+# локальный конфиг и списки прокси (не публиковать!)
+desktop/tgrelay.txt
+desktop/.env
 app/assets/default_proxies.txt
 
 # IDE

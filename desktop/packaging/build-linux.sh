@@ -33,7 +33,7 @@ docker run --rm -v "$SRC:/src" -w /src "$IMAGE" bash -lc '
     /tmp/buildenv/bin/pip install --quiet -r requirements.txt pyinstaller
     /tmp/buildenv/bin/python -m PyInstaller --noconfirm --clean --onefile \
         --name tgrelay-linux-x86_64 \
-        --add-data "/src/.env.example:." \
+        --add-data "/src/tgrelay.example.txt:." \
         --specpath packaging --workpath packaging/work --distpath dist \
         run_headless.py
     chmod +x /src/dist/tgrelay-linux-x86_64

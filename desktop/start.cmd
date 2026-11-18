@@ -2,16 +2,18 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 
-if not exist .env (
-    copy .env.example .env >nul
+if exist .env if not exist tgrelay.txt ren .env tgrelay.txt
+
+if not exist tgrelay.txt (
+    copy tgrelay.example.txt tgrelay.txt >nul
     echo.
-    echo   Создан файл .env
+    echo   Создан файл tgrelay.txt
     echo   Впишите в него:
     echo     SECRET  - 32 символа (hex), можно сгенерировать командой:
     echo       python -c "import secrets; print(secrets.token_hex(16))"
     echo     PROXIES - ваши HTTP-прокси, формат user:pass@host:port
     echo.
-    notepad .env
+    notepad tgrelay.txt
     pause
     exit /b 1
 )

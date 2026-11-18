@@ -86,6 +86,22 @@ def _power(d, s):
     d.line([32, 8, 32, 30], fill=red, width=7)
 
 
+def _gear(d, s):
+    import math
+    steel = (96, 125, 139, 255)
+    centre = s / 2
+    points = []
+    for i in range(16):
+        radius = 24 if i % 2 == 0 else 17
+        angle = math.pi * i / 8
+        points.append((centre + radius * math.cos(angle),
+                       centre + radius * math.sin(angle)))
+    d.polygon(points, fill=steel)
+    d.ellipse([centre - 13, centre - 13, centre + 13, centre + 13],
+              fill=(255, 255, 255, 255))
+    d.ellipse([centre - 7, centre - 7, centre + 7, centre + 7], fill=steel)
+
+
 _DRAW = {
     'copy_mtproto': _clipboard,
     'copy_socks_wifi': _wifi,
@@ -93,6 +109,7 @@ _DRAW = {
     'qr_mtproto': _qr,
     'qr_socks_wifi': _qr,
     'qr_socks_mobile': _qr,
+    'menu_settings': _gear,
     'menu_language': _globe,
     'menu_docs': _book,
     'menu_about': _info,

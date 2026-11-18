@@ -1,19 +1,51 @@
 """Каталоги приложения.
 
 Работает в двух режимах:
-  * из исходников  — .env и логи лежат рядом с файлами .py;
-  * из бинарника   — .env и логи лежат рядом с tgrelay.exe / tgrelay,
-    а ресурсы, вшитые в сборку (.env.example), достаются из temp-каталога.
+  * из исходников  — tgrelay.txt и логи лежат рядом с файлами .py;
+  * из бинарника   — tgrelay.txt и логи лежат рядом с tgrelay.exe / tgrelay,
+    а шаблон, вшитый в сборку (tgrelay.example.txt), достаётся из temp.
+
+Конфиг называется tgrelay.txt, чтобы открываться двойным кликом в Блокноте.
+Старое имя .env поддерживается: при первом запуске он переименовывается.
 
 ensure_env() возвращает:
-  'ok'      — .env уже есть, запускаться;
-  'created' — .env только что создан, пользователю нужно его заполнить
+  'ok'      — конфиг уже есть, запускаться;
+  'created' — конфиг только что создан, пользователю нужно его заполнить
               (открыт и показан совет) — программа должна завершиться;
   None      — запуск из исходников, ничего делать не нужно.
 """
 import os
 import shutil
 import sys
+import time
+
+CONFIG_NAME = 'tgrelay.txt'
+LEGACY_NAME = '.env'
+
+
+def find_config():
+    """Путь к существующему конфигу: tgrelay.txt или старый .env."""
+    dirs = (os.getcwd(), app_dir())
+    for name in (CONFIG_NAME, LEGACY_NAME):
+        for directory in dirs:
+            path = os.path.join(directory, name)
+            if os.path.exists(path):
+                return path
+    return None
+
+
+def migrate_env(path):
+    """Старый .env -> tgrelay.txt: так файл открывается двойным кликом."""
+    if not path or os.path.basename(path) != LEGACY_NAME:
+        return path
+    target = os.path.join(os.path.dirname(path), CONFIG_NAME)
+    if os.path.exists(target):
+        return path
+    try:
+        os.replace(path, target)
+        return target
+    except OSError:
+        return path
 
 
 def is_frozen():
@@ -22,7 +54,7 @@ def is_frozen():
 
 
 def app_dir():
-    """Каталог с .env и логами."""
+    """Каталог с конфигом и логами."""
     if is_frozen():
         return os.path.dirname(os.path.abspath(sys.executable))
     return os.path.dirname(os.path.abspath(__file__))
@@ -48,29 +80,36 @@ def log_path(name):
     return None
 
 
-def _first_existing_env():
-    """Есть ли .env в cwd (как ищет proxy_pool) или рядом с программой."""
-    for directory in (os.getcwd(), app_dir()):
-        path = os.path.join(directory, '.env')
-        if os.path.exists(path):
-            return path
-    return None
+def config_path():
+    """Путь к конфигу для чтения и записи.
+
+    Существующий tgrelay.txt (или старый .env) — где бы он ни лежал;
+    старый .env по пути переименовывается. Если конфига нет —
+    tgrelay.txt рядом с программой.
+    """
+    path = find_config()
+    if path is None:
+        return os.path.join(app_dir(), CONFIG_NAME)
+    return migrate_env(path) or path
 
 
 def ensure_env():
     if not is_frozen():
         return None
-    if _first_existing_env():
+
+    found = find_config()
+    if found:
+        migrate_env(found)
         return 'ok'
 
-    example = os.path.join(resource_dir(), '.env.example')
+    example = os.path.join(resource_dir(), 'tgrelay.example.txt')
     if not os.path.exists(example):
         return 'ok'
 
     # каталог рядом с exe может быть только для чтения — берём cwd
     written = None
     for directory in (app_dir(), os.getcwd()):
-        dst = os.path.join(directory, '.env')
+        dst = os.path.join(directory, CONFIG_NAME)
         try:
             shutil.copyfile(example, dst)
             written = dst
@@ -87,6 +126,8 @@ def ensure_env():
            "    и запустите программу заново.\n"
            "EN: fill in PROXY= lines (your HTTP proxies), save the file\n"
            "    and run the program again.\n\n"
+           "Файл открывается двойным кликом / Double-click opens it "
+           "as text.\n"
            "SECRET / LANG — заполнятся автоматически / filled in "
            "automatically.")
     print(msg, flush=True)
@@ -106,12 +147,8 @@ def ensure_env():
 _lock_handle = None
 
 
-def single_instance():
-    """True, если это первый экземпляр. Блокировка держится до выхода.
-
-    Второй запуск exe (частый случай: человек не заметил иконку в трее)
-    иначе падал бы с «address already in use» и пугающим окном ошибки.
-    """
+def _try_lock():
+    """Захватить блокировку одного экземпляра (один раз, без ожидания)."""
     global _lock_handle
     try:
         if sys.platform == 'win32':
@@ -120,8 +157,11 @@ def single_instance():
             handle = kernel32.CreateMutexW(None, False, 'tgrelay-single-instance')
             if not handle:
                 return True
+            if ctypes.get_last_error() == 183:      # ERROR_ALREADY_EXISTS
+                kernel32.CloseHandle(handle)
+                return False
             _lock_handle = handle
-            return ctypes.get_last_error() != 183      # ERROR_ALREADY_EXISTS
+            return True
         import fcntl
         handle = open(os.path.join(app_dir(), 'tgrelay.lock'), 'a+')
         try:
@@ -133,6 +173,24 @@ def single_instance():
         return True
     except Exception:               # блокировки недоступны — не мешаем запуску
         return True
+
+
+def single_instance(wait=0.0):
+    """True, если это первый экземпляр. Блокировка держится до выхода.
+
+    Второй запуск exe (частый случай: человек не заметил иконку в трее)
+    иначе падал бы с «address already in use» и пугающим окном ошибки.
+
+    wait — сколько секунд подождать, если экземпляр уже есть. Нужно при
+    перезапуске из меню: новый процесс ждёт, пока старый освободит порты.
+    """
+    deadline = time.monotonic() + wait
+    while True:
+        if _try_lock():
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.25)
 
 
 def notify_already_running():

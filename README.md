@@ -47,7 +47,7 @@ Details: [app/README.md](app/README.md).
 Ready-made builds from **Releases** (no Python needed):
 
 - Windows: download `tgrelay.exe`, put it into any empty folder, run it —
-  it creates `.env` and opens it for editing.
+  it creates `tgrelay.txt` and opens it for editing.
 - Linux: download `tgrelay-linux-x86_64`, `chmod +x`, run — same story.
 
 From source:
@@ -63,14 +63,14 @@ Linux:
 ```bash
 chmod +x install-linux.sh
 ./install-linux.sh
-nano .env          # proxies + secret
+nano tgrelay.txt          # proxies + secret
 ./install-linux.sh # installs the systemd service
 ```
 
 Two proxies start at once: MTProto on `55055`, SOCKS5 on `55056`.
 Details: [desktop/README.md](desktop/README.md).
 
-## Configuration (`.env`)
+## Configuration (`tgrelay.txt`)
 
 Everything lives in one file next to the program. Sections, comments and
 one proxy per line:
@@ -101,8 +101,10 @@ SOCKS_PASS=
 - Anything after ` #` is a comment.
 - Full-line comments start with `#`.
 - Comment out one proxy to disable it temporarily.
+- Comment out a port line (or set it to `off`) to disable that protocol:
+  MTProto and SOCKS5 then do not start and their tray items disappear.
 - Leave `SECRET` empty: on first launch the program offers to generate a key
-  and writes it into `.env` for you.
+  and writes it into `tgrelay.txt` for you.
 
 ## Where to buy proxies
 

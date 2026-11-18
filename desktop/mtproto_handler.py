@@ -7,6 +7,7 @@ import struct
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
 
+import status
 from upstream_proxy import http_connect
 from proxy_pool import ProxyPool, load_telegram_hosts
 
@@ -101,6 +102,7 @@ class MTProtoHandler:
     async def handle(self, reader, writer):
         peer = writer.get_extra_info('peername')
         logger.info(f"New connection from {peer}")
+        status.conn_open()
         try:
             await self._handle(reader, writer)
         except (ConnectionError, asyncio.IncompleteReadError,
@@ -109,6 +111,7 @@ class MTProtoHandler:
         except Exception as e:
             logger.exception(f"{peer} — unexpected: {e}")
         finally:
+            status.conn_close()
             try:
                 writer.close()
             except:
@@ -201,13 +204,13 @@ class MTProtoHandler:
         logger.info("Starting relay")
         await asyncio.gather(
             self._pipe(reader, up_w, clt_decryptor, tg_encryptor,
-                       name="C->TG"),
+                       name="C->TG", up=True),
             self._pipe(up_r, writer, tg_decryptor, clt_encryptor,
-                       name="TG->C", timeout=30),
+                       name="TG->C", up=False, timeout=30),
         )
 
     async def _pipe(self, src, dst, decryptor, encryptor, name="",
-                    timeout=None):
+                    up=True, timeout=None):
         try:
             while True:
                 if timeout:
@@ -224,6 +227,8 @@ class MTProtoHandler:
                 hexdump(f"{name} enc→dst", encrypted, maxlen=32)
                 dst.write(encrypted)
                 await dst.drain()
+                status.add(up=len(data) if up else 0,
+                           down=0 if up else len(data))
         except (ConnectionError, asyncio.IncompleteReadError,
                 OSError, TimeoutError):
             pass

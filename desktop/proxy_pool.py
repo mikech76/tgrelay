@@ -8,24 +8,50 @@ import time
 
 from dotenv import dotenv_values
 
-from appdir import app_dir
+from appdir import config_path
 from i18n import t
 
 logger = logging.getLogger(__name__)
 
-def _env_path():
-    here = app_dir()
-    for path in (os.path.join(os.getcwd(), '.env'), os.path.join(here, '.env')):
-        if os.path.exists(path):
-            return path
-    return os.path.join(here, '.env')
-
-ENV_PATH = _env_path()
+ENV_PATH = config_path()
 config = dotenv_values(ENV_PATH)
+
+_OFF_VALUES = {'', '0', 'off', 'none', 'no', 'disable', 'disabled', '-'}
+
+
+def _env_text():
+    try:
+        with open(ENV_PATH, 'r', encoding='utf-8-sig') as f:
+            return f.read()
+    except OSError:
+        return ''
+
+
+def port_value(key, default):
+    """Порт протокола из tgrelay.txt; None — протокол выключен.
+
+    Выключен, если значение пустое (PROXY_PORT=), 0, off/none/no/disable/-,
+    либо строка с портом осталась только закомментированной (#PROXY_PORT=…).
+    Ключа нет совсем — берём default, как раньше.
+    """
+    raw = config.get(key)
+    if raw is None:
+        if re.search(rf'^[ \t]*#[ \t]*{re.escape(key)}[ \t]*=',
+                     _env_text(), re.M):
+            return None
+        return int(default)
+    value = raw.strip().lower()
+    if value in _OFF_VALUES:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        raise RuntimeError(f"{key}={raw} — это не порт")
+
 
 
 def save_env_value(key, value):
-    """Записывает KEY=value в .env, сохраняя комментарии и остальные строки."""
+    """Записывает KEY=value в tgrelay.txt, сохраняя комментарии и остальные строки."""
     lines = []
     try:
         with open(ENV_PATH, 'r', encoding='utf-8') as f:
@@ -50,7 +76,7 @@ def save_env_value(key, value):
 
 
 def _iter_env(path):
-    """Пара КЛЮЧ=значение из .env, без комментариев. Понимает повторы ключей."""
+    """Пара КЛЮЧ=значение из tgrelay.txt, без комментариев. Понимает повторы ключей."""
     try:
         with open(path, 'r', encoding='utf-8-sig') as f:
             for line in f:
@@ -227,7 +253,7 @@ def load_telegram_hosts():
 
 
 def load_secret():
-    """Секрет MTProto: берём из .env, а если пустой/битый — предлагаем создать."""
+    """Секрет MTProto: берём из tgrelay.txt, а если пустой/битый — предлагаем создать."""
     raw = (config.get('SECRET') or '').replace(' ', '').replace('-', '')
     valid = bool(re.fullmatch(r'[0-9a-fA-F]{32,64}', raw)) and len(raw) % 2 == 0
     if valid:
@@ -252,24 +278,31 @@ def load_secret():
     raw = _secrets.token_hex(16)
     try:
         save_env_value('SECRET', raw)
-        logger.info("SECRET generated and saved to .env")
+        logger.info("SECRET generated and saved to tgrelay.txt")
         print(t('secret_written', secret=raw))
     except OSError as e:
-        logger.warning("SECRET generated, but could not save it to .env: %s", e)
+        logger.warning("SECRET generated, but could not save it to tgrelay.txt: %s", e)
         print(t('secret_not_saved', secret=raw))
     config['SECRET'] = raw
     return bytes.fromhex(raw)
 
 
-def get_external_ip():
-    host = config.get('EXTERNAL_HOST', '')
-    if host:
-        return host
+def lan_ip():
+    """Адрес этой машины в локальной сети (для ссылок «Wi-Fi»)."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('8.8.8.8', 80))
         ip = s.getsockname()[0]
         s.close()
         return ip
-    except:
+    except OSError:
         return '127.0.0.1'
+
+
+def external_host():
+    """Внешнее имя/IP из EXTERNAL_HOST (пусто — не задано)."""
+    return (config.get('EXTERNAL_HOST') or '').strip()
+
+
+def get_external_ip():
+    return external_host() or lan_ip()
