@@ -30,6 +30,18 @@
 #      You can add as many PROXY= lines as you like: the program tries them
 #      and picks a working one. More proxies = more stable.
 #
+#      The type is either set by the scheme or detected by the program:
+#
+#          PROXY=user:pass@host:port          # detect automatically (HTTP first)
+#          PROXY=http://user:pass@host:port   # HTTP CONNECT
+#          PROXY=https://user:pass@host:port  # https proxy, TLS as a fallback
+#          PROXY=socks5://user:pass@host:port # SOCKS5
+#          PROXY=socks://user:pass@host:port  # SOCKS5 as well (5 by default)
+#          PROXY=socks4://user:pass@host:port # SOCKS4, socks4a:// for 4a
+#
+#      Any proxy that allows CONNECT or SOCKS will do, free or paid.
+#      Port may be omitted: http 8080, https 443, socks 1080.
+#
 #      To disable a proxy temporarily, put # at the start of its line.
 #      A note after " #" at the end of a line is ignored.
 #
@@ -53,6 +65,18 @@
 #
 #      Строк PROXY= может быть сколько угодно: программа перебирает их
 #      и выбирает рабочий. Чем больше прокси, тем стабильнее.
+#
+#      Тип задаётся схемой, а если схемы нет — определяется сам:
+#
+#          PROXY=логин:пароль@хост:порт      # определить автоматически (сначала HTTP)
+#          PROXY=http://логин:пароль@хост:порт   # HTTP CONNECT
+#          PROXY=https://логин:пароль@хост:порт  # https-прокси, при отказе — TLS
+#          PROXY=socks5://логин:пароль@хост:порт # SOCKS5
+#          PROXY=socks://логин:пароль@хост:порт  # тоже SOCKS5 (по умолчанию 5)
+#          PROXY=socks4://логин:пароль@хост:порт # SOCKS4, socks4a:// — 4a
+#
+#      Подойдёт любой прокси, который умеет CONNECT или SOCKS, платный и бесплатный.
+#      Порт можно не писать: http 8080, https 443, socks 1080.
 #
 #      Чтобы временно отключить прокси, поставьте # в начало строки.
 #      Пояснение после " #" в конце строки игнорируется.

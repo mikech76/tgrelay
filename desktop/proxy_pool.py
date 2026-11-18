@@ -102,11 +102,12 @@ def proxy_raw():
 
 
 class Proxy:
-    def __init__(self, host, port, user, password):
+    def __init__(self, host, port, user, password, kind=None):
         self.host = host
         self.port = port
         self.user = user
         self.password = password
+        self.kind = kind        # http / https / socks5 / socks4, None = авто
         self.alive = True
         self.last_check = 0
         self.fail_count = 0
@@ -150,40 +151,20 @@ class ProxyPool:
 
     def _load(self):
         raw = proxy_raw()
-        # убираем комментарии: и целые строки, и "хвост" после пробела
-        cleaned = []
-        for item in raw.replace("\n", ";").split(";"):
-            item = item.strip()
-            if not item or item.startswith("#"):
+        from upstream_proxy import parse_line
+        for item in raw.replace(chr(10), ";").split(";"):
+            try:
+                data = parse_line(item)
+            except ValueError as exc:
+                logger.warning("%s", exc)
                 continue
-            item = re.split(r"\s+#", item)[0].strip()
-            if item:
-                cleaned.append(item)
-        for p in cleaned:
-            p = p.strip()
-            if not p:
+            if data is None:
                 continue
-            m = re.match(r'(.+?):(.+?)@(.+?):(\d+)', p)
-            if m:
-                proxy = Proxy(
-                    host=m.group(3),
-                    port=int(m.group(4)),
-                    user=m.group(1),
-                    password=m.group(2)
-                )
-                self.proxies.append(proxy)
-                logger.info(f"Loaded proxy: {proxy.addr}")
-                continue
-            m = re.match(r'(\d{1,3}(?:\.\d{1,3}){3}):(\d+)', p)
-            if m:
-                proxy = Proxy(
-                    host=m.group(1),
-                    port=int(m.group(2)),
-                    user='',
-                    password=''
-                )
-                self.proxies.append(proxy)
-                logger.info(f"Loaded proxy (no auth): {proxy.addr}")
+            proxy = Proxy(data["host"], data["port"], data["user"],
+                          data["password"], data["kind"])
+            self.proxies.append(proxy)
+            logger.info("Loaded proxy: %s (%s)", proxy.addr,
+                        proxy.kind or "авто")
 
     def _start_health_check(self):
         self._running = True

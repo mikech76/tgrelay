@@ -8,7 +8,7 @@ from Crypto.Cipher import AES
 from Crypto.Util import Counter
 
 import status
-from upstream_proxy import http_connect
+from upstream_proxy import open_tunnel
 from proxy_pool import ProxyPool, load_telegram_hosts
 
 logger = logging.getLogger(__name__)
@@ -184,7 +184,7 @@ class MTProtoHandler:
 
         logger.info(f"Upstream: {proxy['host']}:{proxy['port']} → "
                      f"{tg_host}:443")
-        up_r, up_w = await http_connect(proxy, tg_host, 443)
+        up_r, up_w = await open_tunnel(proxy, tg_host, 443)
         logger.info("Upstream CONNECT OK")
 
         # send relay init to TG server

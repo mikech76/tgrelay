@@ -157,13 +157,15 @@ def load_config():
 # --------------------------------------------------------------------------
 
 class Proxy:
-    __slots__ = ("host", "port", "user", "password", "alive", "fails", "latency")
+    __slots__ = ("host", "port", "user", "password", "kind", "alive",
+                 "fails", "latency")
 
-    def __init__(self, host, port, user="", password=""):
+    def __init__(self, host, port, user="", password="", kind=None):
         self.host = host
         self.port = port
         self.user = user
         self.password = password
+        self.kind = kind          # http / https / socks5 / socks4, None = авто
         self.alive = True
         self.fails = 0
         self.latency = None
@@ -182,23 +184,19 @@ def parse_proxies(raw):
     Комментарии: строки и элементы, начинающиеся с #, пропускаются,
     хвостовой комментарий после пробела тоже отбрасывается.
     """
+    from upstream_proxy import parse_line
+
     result = []
-    for item in raw.replace("\n", ";").split(";"):
-        item = item.strip()
-        if not item or item.startswith("#"):
+    for item in raw.replace(chr(10), ";").split(";"):
+        try:
+            data = parse_line(item)
+        except ValueError as exc:
+            log.warning("%s", exc)
             continue
-        item = re.split(r"\s+#", item)[0].strip()
-        if not item:
+        if data is None:
             continue
-        m = re.match(r"^(.+?):(.+?)@\[?([0-9a-fA-F:.]+)\]?:(\d+)$", item)
-        if m:
-            result.append(Proxy(m.group(3), int(m.group(4)), m.group(1), m.group(2)))
-            continue
-        m = re.match(r"^\[?([0-9a-fA-F:.]+)\]?:(\d+)$", item)
-        if m:
-            result.append(Proxy(m.group(1), int(m.group(2))))
-            continue
-        log.warning("Не разобрал строку прокси: %s", item)
+        result.append(Proxy(data["host"], data["port"], data["user"],
+                            data["password"], data["kind"]))
     return result
 
 
@@ -224,36 +222,12 @@ def _bracket(host):
 
 
 async def http_connect(proxy, host, port, timeout=15.0):
-    """Открыть туннель до host:port через HTTP-прокси. Возвращает (reader, writer)."""
-    reader, writer = await asyncio.wait_for(
-        asyncio.open_connection(proxy.host, proxy.port), timeout)
-    try:
-        sock = writer.get_extra_info("socket")
-        if sock is not None:
-            try:
-                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            except OSError:
-                pass
+    """Открыть туннель до host:port через прокси (HTTP, HTTPS, SOCKS4/5).
 
-        target = f"{_bracket(host)}:{port}"
-        lines = [f"CONNECT {target} HTTP/1.1", f"Host: {target}"]
-        if proxy.user:
-            token = base64.b64encode(
-                f"{proxy.user}:{proxy.password}".encode()).decode()
-            lines.append(f"Proxy-Authorization: Basic {token}")
-        writer.write(("\r\n".join(lines) + "\r\n\r\n").encode())
-        await writer.drain()
-
-        head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout)
-        status = head.split(b"\r\n", 1)[0].split()
-        if len(status) < 2 or status[1] != b"200":
-            raise ConnectionError(
-                head.split(b"\r\n", 1)[0].decode("latin-1", "replace"))
-    except BaseException:
-        writer.close()
-        raise
-    # Всё, что после заголовков, осталось в reader — оно уйдёт клиенту как есть.
-    return reader, writer
+    Тип берётся из схемы в конфиге, а если схемы нет — определяется сам.
+    """
+    from upstream_proxy import open_tunnel
+    return await open_tunnel(proxy, host, port, timeout)
 
 
 class Pool:

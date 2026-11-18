@@ -110,7 +110,10 @@ SOCKS_PASS=
 
 ## Where to buy proxies
 
-Any provider of **HTTP CONNECT** proxies with username/password will work.
+Any proxy will do — **HTTP CONNECT** (plain or over TLS) or **SOCKS4/SOCKS5**, paid or free,
+with or without a username/password. Put it in the config as `user:pass@host:port`
+(the type is detected automatically) or with a scheme: `http://`, `https://`,
+`socks5://`, `socks://`, `socks4://`.
 
 | What is offered | Works? |
 |---|---|

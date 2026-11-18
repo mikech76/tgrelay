@@ -1,7 +1,7 @@
 # tgrelay for desktop (Windows / Linux)
 
 The same idea as the Android app, but for a computer: one process starts
-**two proxies at once**, both using your pool of HTTP CONNECT proxies.
+**two proxies at once**, both using your pool of upstream proxies (HTTP CONNECT or SOCKS).
 
 | Type | Default port | Used by |
 |---|---|---|
@@ -163,7 +163,7 @@ SOCKS_PASS=
 
 | Key | Meaning |
 |---|---|
-| `PROXY` | one HTTP CONNECT proxy per line (`login:password@host:port` or `host:port`) |
+| `PROXY` | one proxy per line: `login:password@host:port`, or with a scheme — `http://`, `https://`, `socks5://`, `socks://` (5 by default), `socks4://`; without a scheme the type is detected automatically |
 | `PROXY_PORT` | MTProto port (default 55055); comment the line out, set `off` or leave it empty to disable MTProto |
 | `SOCKS_PORT` | SOCKS5 port (default 55056); same — disables SOCKS5 entirely |
 | `SOCKS_HOST` | SOCKS5 listen address |
