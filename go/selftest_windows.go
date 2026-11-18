@@ -30,5 +30,34 @@ func runSelftest(kind, path string, cfg *Config) {
 		fmt.Println()
 	case "settings":
 		watchSettings(path)
+	case "autostart":
+		fmt.Println("before:", autostartEnabled())
+		if err := enableAutostart(); err != nil {
+			fmt.Println("enable error:", err)
+			os.Exit(1)
+		}
+		fmt.Println("after enable:", autostartEnabled())
+		disableAutostart()
+		fmt.Println("after disable:", autostartEnabled())
+	case "reload":
+		fmt.Println("reload: restarting")
+		restartSelf()
 	}
+}
+
+// showFirstRun: конфиг только что создан — открыть его и попрощаться.
+func showFirstRun(path string) {
+	text := `tgrelay
+
+Config file created / Создан файл настроек:
+` + path + `
+
+EN: fill in PROXY= lines (your proxies, HTTP or SOCKS), save the file
+    and run the program again.
+RU: впишите строки PROXY= (ваши прокси, HTTP или SOCKS), сохраните
+    и запустите программу заново.
+
+SECRET / LANG are filled in automatically / заполнятся автоматически.`
+	shellExecute("open", path)
+	messageBox(text, "tgrelay", 0x40)
 }

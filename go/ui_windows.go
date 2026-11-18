@@ -18,8 +18,11 @@ func runUI(cfg *Config, path string, pool *Pool, stats *Stats, headless bool) {
 		select {}
 	}
 	t := newTray(cfg, path, pool, stats)
+	logf("трей: окно создано")
 	printLinks(cfg)
+	logf("трей: вход в цикл сообщений")
 	t.run()
+	logf("трей: цикл завершён")
 }
 
 func printLinks(cfg *Config) {

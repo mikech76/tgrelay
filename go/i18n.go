@@ -29,7 +29,14 @@ func setLang(code string) {
 type pair struct{ en, ru string }
 
 var texts = map[string]pair{
-	"settings":    {"Settings — tgrelay.txt", "Настройки — tgrelay.txt"},
+	"settings":    {"Settings", "Настройки"},
+	"edit_config": {"Edit config file", "Редактировать конфиг"},
+	"autostart":   {"Run at startup", "Автозагрузка"},
+	"reload":      {"Reload config", "Перечитать конфиг"},
+	"autostart_on":  {"Autostart enabled", "Автозагрузка включена"},
+	"autostart_off": {"Autostart disabled", "Автозагрузка выключена"},
+	"reloading":     {"Reloading config — all proxies and ports restart…",
+	                  "Перечитываю конфиг — прокси и порты перезапускаются…"},
 	"language":    {"Language", "Язык"},
 	"docs":        {"Documentation", "Документация"},
 	"about":       {"About", "О программе"},

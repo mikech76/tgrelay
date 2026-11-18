@@ -14,7 +14,7 @@ Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → proxy pr
 | Folder | What it is |
 |---|---|
 | [`app/`](app/README.md) | Android app: one APK, local SOCKS5, no setup beyond a proxy list |
-| [`desktop/`](desktop/README.md) | Windows and Linux: MTProto **and** SOCKS5 at the same time, shared proxy pool |
+| [`go/`](go/README.md) | Windows and Linux: MTProto **and** SOCKS5 at the same time, shared proxy pool, 4.7 MB binary |
 
 ## Why this exists
 
@@ -44,31 +44,25 @@ Details: [app/README.md](app/README.md).
 
 ## Desktop (Windows / Linux)
 
-Ready-made builds from **Releases** (no Python needed):
+One Go binary, no runtime, no DLLs — 4.7 MB on Windows, 4.0 MB on Linux.
+
+Ready-made builds from **Releases**:
 
 - Windows: download `tgrelay.exe`, put it into any empty folder, run it —
-  it creates `tgrelay.txt` and opens it for editing.
-- Linux: download `tgrelay-linux-x86_64`, `chmod +x`, run — same story.
+  it creates `tgrelay.txt` and opens it for editing. Tray icon with the live
+  status, links and QR codes.
+- Linux: download `tgrelay-linux`, `chmod +x`, run — it creates `tgrelay.txt`,
+  prints the links and works in the foreground (systemd unit in the docs).
 
-From source:
-
-Windows:
-
-```bat
-start.cmd
-```
-
-Linux:
+From source (Go 1.22+, or Docker):
 
 ```bash
-chmod +x install-linux.sh
-./install-linux.sh
-nano tgrelay.txt          # proxies + secret
-./install-linux.sh # installs the systemd service
+cd go
+sh build.sh             # dist/tgrelay.exe and dist/tgrelay-linux
 ```
 
 Two proxies start at once: MTProto on `55055`, SOCKS5 on `55056`.
-Details: [desktop/README.md](desktop/README.md).
+Details: [go/README.md](go/README.md).
 
 ## Configuration (`tgrelay.txt`)
 

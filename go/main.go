@@ -38,6 +38,15 @@ func main() {
 		return
 	}
 
+	cfgPath := *configPath
+	if cfgPath == "" {
+		cfgPath = findConfig()
+	}
+	if _, created := ensureConfig(cfgPath); created {
+		showFirstRun(cfgPath)
+		return
+	}
+
 	cfg, pool, stats, path, err := loadApp(*configPath)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

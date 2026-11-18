@@ -14,7 +14,7 @@ Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → прок
 | Папка | Что это |
 |---|---|
 | [`app/`](app/README.ru.md) | Android-приложение: один APK, локальный SOCKS5, настроек минимум |
-| [`desktop/`](desktop/README.ru.md) | Windows и Linux: MTProto **и** SOCKS5 одновременно, общий пул прокси |
+| [`go/`](go/README.ru.md) | Windows и Linux: MTProto **и** SOCKS5 одновременно, общий пул прокси, бинарник 4,7 МБ |
 
 ## Зачем это нужно
 
@@ -45,31 +45,26 @@ Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → прок
 
 ## Компьютер (Windows / Linux)
 
-Готовые сборки из **Releases** (Python не нужен):
+Один бинарник на Go: без рантайма и DLL — 4,7 МБ на Windows, 4,0 МБ на Linux.
+
+Готовые сборки из **Releases**:
 
 - Windows: скачайте `tgrelay.exe`, положите в любую пустую папку, запустите —
-  он сам создаст `tgrelay.txt` и откроет его для правки.
-- Linux: скачайте `tgrelay-linux-x86_64`, `chmod +x`, запустите — то же самое.
+  он создаст `tgrelay.txt` и откроет его для правки. Иконка в трее с живым
+  статусом, ссылками и QR.
+- Linux: скачайте `tgrelay-linux`, `chmod +x`, запустите — создаст
+  `tgrelay.txt`, напечатает ссылки и работает на переднем плане (systemd-юнит
+  в документации).
 
-Из исходников:
-
-Windows:
-
-```bat
-start.cmd
-```
-
-Linux:
+Из исходников (Go 1.22+ или Docker):
 
 ```bash
-chmod +x install-linux.sh
-./install-linux.sh
-nano tgrelay.txt            # прокси + секрет
-./install-linux.sh   # поставит systemd-сервис
+cd go
+sh build.sh             # dist/tgrelay.exe и dist/tgrelay-linux
 ```
 
 Поднимаются сразу два прокси: MTProto на `55055`, SOCKS5 на `55056`.
-Подробнее: [desktop/README.ru.md](desktop/README.ru.md).
+Подробнее: [go/README.ru.md](go/README.ru.md).
 
 ## Настройки (`tgrelay.txt`)
 

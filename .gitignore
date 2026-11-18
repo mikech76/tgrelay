@@ -8,8 +8,9 @@ build/
 *.jks
 
 # локальный конфиг и списки прокси (не публиковать!)
-desktop/tgrelay.txt
-desktop/.env
+go/tgrelay.txt
+go/.env
+tgrelay.txt
 app/assets/default_proxies.txt
 
 # IDE
@@ -26,13 +27,6 @@ local.properties
 __pycache__/
 *.pyc
 *.pyo
-
-# сборка desktop (pyinstaller)
-desktop/dist/
-desktop/packaging/work/
-desktop/packaging/*.spec
-desktop/packaging/tgrelay.ico
-desktop/packaging/venv/
 
 # сборка Go
 go/dist/

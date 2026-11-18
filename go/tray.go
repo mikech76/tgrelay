@@ -75,6 +75,7 @@ func (t *tray) init() {
 func (t *tray) wndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 	switch msg {
 	case wmApp + 1:
+		logf("трей: сообщение %d", lparam)
 		switch uint32(lparam) {
 		case wmRButtonUp, wmContext:
 			t.showMenu()
@@ -170,6 +171,7 @@ func (t *tray) addSubmenu(menu uintptr, text, icon string) uintptr {
 }
 
 func (t *tray) showMenu() {
+	logf("меню: открываю")
 	t.ids = map[uint32]func(){}
 	if t.menu != 0 {
 		pDestroyMenu.Call(t.menu)
@@ -211,11 +213,15 @@ func (t *tray) showMenu() {
 	}
 
 	t.addSeparator(menu)
-	t.addItem(menu, tr("settings"), t.id(t.openSettings), "menu_settings", true, false)
+	settings := t.addSubmenu(menu, tr("settings"), "menu_settings")
+	t.addItem(settings, tr("edit_config"), t.id(t.openSettings), "menu_edit", true, false)
+	t.addItem(settings, tr("autostart"), t.id(t.toggleAutostart), "menu_autostart", true,
+		autostartEnabled())
+	t.addItem(settings, tr("reload"), t.id(t.reloadConfig), "menu_reload", true, false)
 
 	langMenu := t.addSubmenu(menu, tr("language"), "menu_language")
-	t.addItem(langMenu, "English", t.id(func() { t.setLang("en") }), "", true, lang() == "en")
-	t.addItem(langMenu, "Русский", t.id(func() { t.setLang("ru") }), "", true, lang() == "ru")
+	t.addItem(langMenu, "English", t.id(func() { t.setLang("en") }), "menu_lang_en", true, lang() == "en")
+	t.addItem(langMenu, "Русский", t.id(func() { t.setLang("ru") }), "menu_lang_ru", true, lang() == "ru")
 
 	t.addItem(menu, tr("docs"), t.id(t.openDocs), "menu_docs", true, false)
 	t.addItem(menu, tr("about"), t.id(t.showAbout), "menu_about", true, false)
@@ -228,6 +234,7 @@ func (t *tray) showMenu() {
 	cmd, _, _ := pTrackPopupMenuEx.Call(menu,
 		tpmReturnCmd|tpmRightAlign, uintptr(pt.X), uintptr(pt.Y), t.hwnd, 0)
 	pPostMessageW.Call(t.hwnd, 0, 0, 0)
+	logf("меню: выбрано %d", cmd)
 	if cmd > 0 {
 		if action, ok := t.ids[uint32(cmd)]; ok {
 			action()
@@ -294,9 +301,9 @@ func (t *tray) setLang(code string) {
 }
 
 func (t *tray) openDocs() {
-	url := repoURL + "/blob/main/desktop/README.md"
+	url := repoURL + "/blob/main/go/README.md"
 	if lang() == "ru" {
-		url = repoURL + "/blob/main/desktop/README.ru.md"
+		url = repoURL + "/blob/main/go/README.ru.md"
 	}
 	shellExecute("open", url)
 }
@@ -307,6 +314,24 @@ func (t *tray) showAbout() {
 
 func (t *tray) openSettings() {
 	go watchSettings(t.path)
+}
+
+func (t *tray) toggleAutostart() {
+	if autostartEnabled() {
+		disableAutostart()
+		t.balloon(tr("autostart_off"))
+	} else {
+		if err := enableAutostart(); err != nil {
+			messageBox("Autostart: "+err.Error(), "tgrelay", 0x10)
+			return
+		}
+		t.balloon(tr("autostart_on"))
+	}
+}
+
+func (t *tray) reloadConfig() {
+	t.balloon(tr("reloading"))
+	go restartSelf()
 }
 
 func (t *tray) exit() {

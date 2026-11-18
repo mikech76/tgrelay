@@ -71,7 +71,7 @@ func (m *MTProto) handle(client net.Conn) {
 	decStream := ctrStream(decKey[:], init[40:56])
 
 	plain := make([]byte, handshakeLen)
-	decStream.XORKeyStream(plain, init) // позиция 64 — как в Python
+	decStream.XORKeyStream(plain, init) // позиция 64 — инициализация уже расшифрована
 
 	tag := plain[56:60]
 	if !validTag(tag) {

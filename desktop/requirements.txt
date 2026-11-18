@@ -1,3 +1,0 @@
-# Ядро (Windows и Linux)
-python-dotenv>=1.0.0
-pycryptodome>=3.20.0
