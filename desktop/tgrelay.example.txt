@@ -1,129 +1,198 @@
 # =============================================================================
-#  tgrelay — настройки
+#  tgrelay settings / настройки
 # =============================================================================
-#  Всё в одном файле. Открывается двойным кликом — это обычный текст.
+#  EN  Everything lives in this one file. Double-click opens it as plain text.
+#      Tray menu -> Settings: the file opens in Notepad; save it and close
+#      Notepad, and the program restarts itself with the new settings.
+#      Anything after " #" on a line is a comment, lines starting with # are
+#      ignored.
 #
-#  Меню трея -> «Настройки»: файл откроется в Блокноте, после сохранения
-#  и закрытия Блокнота программа перезапустится сама с новыми настройками.
-#
-#  Всё, что идёт после " #" в строке, считается комментарием.
-#  Строки, начинающиеся с #, игнорируются.
+#  RU  Всё в одном файле. Открывается двойным кликом — это обычный текст.
+#      Меню трея -> «Настройки»: файл откроется в Блокноте, после сохранения
+#      и закрытия Блокнота программа перезапустится сама с новыми настройками.
+#      Всё, что идёт после " #" в строке, считается комментарием, строки,
+#      начинающиеся с #, игнорируются.
 # =============================================================================
 
 
 # -----------------------------------------------------------------------------
-#  1. ПРОКСИ
+#  1. PROXIES / ПРОКСИ
 # -----------------------------------------------------------------------------
-#  HTTP CONNECT-прокси, через которые пойдёт трафик Telegram.
-#  По одному прокси на строку. Формат:
+#  EN  HTTP CONNECT proxies that Telegram traffic goes through.
+#      One proxy per line:
 #
-#      PROXY=логин:пароль@хост:порт
+#          PROXY=user:password@host:port
 #
-#  Если у прокси нет логина и пароля:
+#      Without login and password:
 #
-#      PROXY=хост:порт
+#          PROXY=host:port
 #
-#  Строк PROXY= может быть сколько угодно: программа перебирает их
-#  и выбирает рабочий. Чем больше прокси, тем стабильнее.
+#      You can add as many PROXY= lines as you like: the program tries them
+#      and picks a working one. More proxies = more stable.
 #
-#  Чтобы временно отключить прокси, поставьте # в начало строки.
-#  В конце строки можно оставить пояснение после " #".
+#      To disable a proxy temporarily, put # at the start of its line.
+#      A note after " #" at the end of a line is ignored.
 #
-#  Примеры (скопируйте строку, уберите # и подставьте свои данные):
+#      Examples (copy a line, remove #, put your own data):
 #
-#  PROXY=user:password@1.2.3.4:9405        # основной
-#  PROXY=user:password@5.6.7.8:9829        # запасной
-#  PROXY=9.9.9.9:8080                      # без авторизации
+#      PROXY=user:password@1.2.3.4:9405        # primary
+#      PROXY=user:password@5.6.7.8:9829        # backup
+#      PROXY=9.9.9.9:8080                      # no auth
 #
-#  Старый формат одной строкой тоже поддерживается:
-#  PROXIES=user:pass@1.2.3.4:9405;5.6.7.8:8080
+#      The old one-line format still works:
+#      PROXIES=user:pass@1.2.3.4:9405;5.6.7.8:8080
+#
+#  RU  HTTP CONNECT-прокси, через которые пойдёт трафик Telegram.
+#      По одному прокси на строку:
+#
+#          PROXY=логин:пароль@хост:порт
+#
+#      Если у прокси нет логина и пароля:
+#
+#          PROXY=хост:порт
+#
+#      Строк PROXY= может быть сколько угодно: программа перебирает их
+#      и выбирает рабочий. Чем больше прокси, тем стабильнее.
+#
+#      Чтобы временно отключить прокси, поставьте # в начало строки.
+#      Пояснение после " #" в конце строки игнорируется.
+#
+#      Примеры (скопируйте строку, уберите # и подставьте свои данные):
+#
+#      PROXY=user:password@1.2.3.4:9405        # основной
+#      PROXY=user:password@5.6.7.8:9829        # запасной
+#      PROXY=9.9.9.9:8080                      # без авторизации
+#
+#      Старый формат одной строкой тоже поддерживается:
+#      PROXIES=user:pass@1.2.3.4:9405;5.6.7.8:8080
 
 PROXY=
 
 
 # -----------------------------------------------------------------------------
-#  2. ПОРТЫ
+#  2. PORTS / ПОРТЫ
 # -----------------------------------------------------------------------------
-#  Порт MTProto-прокси. Этот же порт указывается в Telegram
-#  при добавлении прокси типа «MTProto». По умолчанию 55055.
+#  EN  MTProto proxy port. The same port is entered in Telegram when adding
+#      an "MTProto" proxy. Default 55055. To disable MTProto completely,
+#      comment the line out (#PROXY_PORT=...), leave it empty or set off.
 #
-#  Чтобы отключить MTProto совсем, закомментируйте строку (#PROXY_PORT=...)
-#  или оставьте значение пустым / off.
+#  RU  Порт MTProto-прокси. Этот же порт указывается в Telegram
+#      при добавлении прокси типа «MTProto». По умолчанию 55055.
+#      Чтобы отключить MTProto совсем, закомментируйте строку
+#      (#PROXY_PORT=...), оставьте значение пустым или поставьте off.
 PROXY_PORT=55055
 
-#  Порт SOCKS5-прокси. Указывается в Telegram при добавлении
-#  прокси типа «SOCKS5». По умолчанию 55056.
+#  EN  SOCKS5 proxy port. Entered in Telegram when adding a "SOCKS5" proxy.
+#      Default 55056. Disabled the same way: #SOCKS_PORT=..., empty or off.
 #
-#  Отключается так же: #SOCKS_PORT=... , пусто или off.
+#  RU  Порт SOCKS5-прокси. Указывается в Telegram при добавлении
+#      прокси типа «SOCKS5». По умолчанию 55056.
+#      Отключается так же: #SOCKS_PORT=... , пусто или off.
 SOCKS_PORT=55056
 
-#  На каком адресе слушать SOCKS5:
-#    127.0.0.1  — только этот компьютер (безопаснее);
-#    0.0.0.0    — ещё и другие устройства в локальной сети.
+#  EN  Address to listen on for SOCKS5:
+#        127.0.0.1  — this computer only (safer);
+#        0.0.0.0    — also other devices in the local network.
+#
+#  RU  На каком адресе слушать SOCKS5:
+#        127.0.0.1  — только этот компьютер (безопаснее);
+#        0.0.0.0    — ещё и другие устройства в локальной сети.
 SOCKS_HOST=0.0.0.0
 
 
 # -----------------------------------------------------------------------------
-#  3. СЕКРЕТ MTProto
+#  3. MTProto SECRET / СЕКРЕТ MTProto
 # -----------------------------------------------------------------------------
-#  Ключ, которым Telegram шифрует соединение с MTProto-прокси.
-#  Ровно 32 символа из 0-9 и a-f (16 байт).
+#  EN  The key Telegram uses to encrypt the connection to the MTProto proxy.
+#      Exactly 32 characters, 0-9 and a-f (16 bytes).
 #
-#  Если оставить пустым, программа при первом запуске предложит
-#  сгенерировать ключ и сама запишет его сюда.
+#      If left empty, the program offers to generate a key on the first run
+#      and writes it here.
 #
-#  Сгенерировать вручную:
-#      python -c "import secrets; print(secrets.token_hex(16))"
+#      Generate it by hand:
+#          python -c "import secrets; print(secrets.token_hex(16))"
 #
-#  ВАЖНО: если поменять ключ, в Telegram нужно заново добавить прокси.
+#      IMPORTANT: if you change the key, the proxy has to be added to
+#      Telegram again on every device.
+#
+#  RU  Ключ, которым Telegram шифрует соединение с MTProto-прокси.
+#      Ровно 32 символа из 0-9 и a-f (16 байт).
+#
+#      Если оставить пустым, программа при первом запуске предложит
+#      сгенерировать ключ и сама запишет его сюда.
+#
+#      Сгенерировать вручную:
+#          python -c "import secrets; print(secrets.token_hex(16))"
+#
+#      ВАЖНО: если поменять ключ, в Telegram нужно заново добавить прокси
+#      на каждом устройстве.
 SECRET=
 
 
 # -----------------------------------------------------------------------------
-#  3b. ЯЗЫК ИНТЕРФЕЙСА / UI LANGUAGE
+#  3b. UI LANGUAGE / ЯЗЫК ИНТЕРФЕЙСА
 # -----------------------------------------------------------------------------
-#  en — English, ru — Русский. Пусто = язык системы.
-#  en — English, ru — Russian. Empty = system language.
+#  EN  en — English, ru — Russian. Empty = system language.
+#      Also switched from the tray menu: right click -> Language / Язык.
 #
-#  Меняется и из меню трея: правый клик -> Язык / Language.
+#  RU  en — English, ru — Русский. Пусто = язык системы.
+#      Меняется и из меню трея: правый клик -> Язык / Language.
 LANG=
 
 
 # -----------------------------------------------------------------------------
-#  4. ВНЕШНЕЕ ИМЯ (только если пробросили порт на роутере)
+#  4. EXTERNAL NAME / ВНЕШНЕЕ ИМЯ
 # -----------------------------------------------------------------------------
-#  DDNS-имя или внешний IP компьютера. Нужно, чтобы ссылки для Telegram
-#  были с внешним адресом, а не с локальным.
+#  EN  Only needed if you forwarded the port on your router. DDNS name or
+#      external IP of this computer, so the Telegram links use the external
+#      address instead of the local one. Example: yourname.duckdns.org
+#      If empty, links use the local address of the computer and the proxy
+#      works only inside your own network.
 #
-#  Пример: yourname.duckdns.org
-#
-#  Если пусто — в ссылках будет локальный адрес компьютера,
-#  и прокси будет работать только в своей сети.
+#  RU  Нужно, только если пробросили порт на роутере. DDNS-имя или внешний
+#      IP компьютера — чтобы ссылки для Telegram были с внешним адресом,
+#      а не с локальным. Пример: yourname.duckdns.org
+#      Если пусто — в ссылках будет локальный адрес компьютера,
+#      и прокси будет работать только в своей сети.
 EXTERNAL_HOST=
 
 
 # -----------------------------------------------------------------------------
-#  5. ДОСТУП К SOCKS5
+#  5. SOCKS5 ACCESS / ДОСТУП К SOCKS5
 # -----------------------------------------------------------------------------
-#  Адреса, которым SOCKS5 разрешает подключаться без пароля.
-#  По умолчанию: сам компьютер и локальная сеть.
+#  EN  Addresses that may use SOCKS5 without a password. By default: this
+#      computer and the local network. Format: networks separated by commas
+#      (CIDR). Empty — every address needs the password.
 #
-#  Формат: список сетей через запятую (CIDR).
-#  Пусто — пароль требуется всем.
+#  RU  Адреса, которым SOCKS5 разрешает подключаться без пароля.
+#      По умолчанию: сам компьютер и локальная сеть.
+#      Формат: список сетей через запятую (CIDR).
+#      Пусто — пароль требуется всем.
 AUTH_BYPASS=127.0.0.1/32,192.168.0.0/24
 
-#  Логин и пароль для всех остальных (например, для подключения из интернета).
-#  Если оба пустые — авторизация выключена, и пускаются все адреса.
+#  EN  Login and password for everybody else (for example, connections from
+#      the internet). If both are empty, authorization is off and every
+#      address is allowed.
 #
-#  ВАЖНО: перед пробросом порта наружу обязательно задайте пароль,
-#  иначе ваш SOCKS5 станет открытым прокси для всего интернета.
+#      IMPORTANT: before forwarding the port outside, always set a password,
+#      otherwise your SOCKS5 becomes an open proxy for the whole internet.
+#
+#  RU  Логин и пароль для всех остальных (например, для подключения
+#      из интернета). Если оба пустые — авторизация выключена, и пускаются
+#      все адреса.
+#
+#      ВАЖНО: перед пробросом порта наружу обязательно задайте пароль,
+#      иначе ваш SOCKS5 станет открытым прокси для всего интернета.
 SOCKS_USER=
 SOCKS_PASS=
 
 
 # -----------------------------------------------------------------------------
-#  6. СЛУЖЕБНОЕ
+#  6. INTERNAL / СЛУЖЕБНОЕ
 # -----------------------------------------------------------------------------
-#  Адреса Telegram, по которым проверяется живость прокси из пула.
-#  Менять не нужно.
+#  EN  Telegram addresses used to check that proxies in the pool are alive.
+#      No need to change.
+#
+#  RU  Адреса Telegram, по которым проверяется живость прокси из пула.
+#      Менять не нужно.
 TEST_TARGET=149.154.167.51:443,149.154.175.50:443

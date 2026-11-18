@@ -135,6 +135,8 @@ Run manually without systemd:
 ## Settings: one `tgrelay.txt` file
 
 Everything is in one file — proxies, ports, external name. No environment variables.
+Every block in the file is commented in both languages, English first and
+Russian after it, the same order as in this documentation.
 
 ```ini
 # 1. PROXIES (one per line)

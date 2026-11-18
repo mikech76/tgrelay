@@ -120,16 +120,16 @@ def ensure_env():
         return 'ok'
 
     msg = ("tgrelay\n\n"
-           "Создан файл настроек / Config file created:\n"
+           f"Config file created / Создан файл настроек:\n"
            f"{written}\n\n"
-           "RU: впишите строки PROXY= (ваши HTTP-прокси), сохраните\n"
-           "    и запустите программу заново.\n"
            "EN: fill in PROXY= lines (your HTTP proxies), save the file\n"
-           "    and run the program again.\n\n"
-           "Файл открывается двойным кликом / Double-click opens it "
-           "as text.\n"
-           "SECRET / LANG — заполнятся автоматически / filled in "
-           "automatically.")
+           "    and run the program again.\n"
+           "RU: впишите строки PROXY= (ваши HTTP-прокси), сохраните\n"
+           "    и запустите программу заново.\n\n"
+           "Double-click opens it as text / "
+           "Открывается двойным кликом как текст.\n"
+           "SECRET / LANG are filled in automatically / "
+           "заполнятся автоматически.")
     print(msg, flush=True)
     if sys.platform == 'win32':
         try:

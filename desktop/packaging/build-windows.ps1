@@ -21,7 +21,7 @@ if (-not (Test-Path $py)) {
     python -m venv $venv
 }
 & $py -m pip install --quiet --upgrade pip
-& $py -m pip install --quiet -r requirements-windows.txt pyinstaller
+& $py -m pip install --quiet -r requirements-windows.txt "pyinstaller==6.21.0"
 
 Write-Host "== icon =="
 & $py packaging\make_icon.py

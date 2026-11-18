@@ -30,7 +30,7 @@ docker run --rm -v "$SRC:/src" -w /src "$IMAGE" bash -lc '
     echo "python: $(python --version)"
     # чистый venv: в образе и так ничего лишнего, но venv - гарантия
     python -m venv /tmp/buildenv
-    /tmp/buildenv/bin/pip install --quiet -r requirements.txt pyinstaller
+    /tmp/buildenv/bin/pip install --quiet -r requirements.txt "pyinstaller==6.21.0"
     /tmp/buildenv/bin/python -m PyInstaller --noconfirm --clean --onefile \
         --name tgrelay-linux-x86_64 \
         --add-data "/src/tgrelay.example.txt:." \
