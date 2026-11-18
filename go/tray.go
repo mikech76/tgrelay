@@ -184,7 +184,11 @@ func (t *tray) showMenu() {
 
 	protocols := t.protocolLine()
 	t.addItem(menu, protocols, 0, "", false, false)
-	t.addItem(menu, fmt.Sprintf(tr("proxies"), alive, total, snap.Conns), 0, "", false, false)
+	if t.pool.Direct() {
+		t.addItem(menu, fmt.Sprintf(tr("direct_mode"), snap.Conns), 0, "", false, false)
+	} else {
+		t.addItem(menu, fmt.Sprintf(tr("proxies"), alive, total, snap.Conns), 0, "", false, false)
+	}
 	t.addItem(menu, fmt.Sprintf(tr("speed"), human(snap.DownRate), human(snap.UpRate)), 0, "", false, false)
 	t.addItem(menu, fmt.Sprintf(tr("total"), human(float64(snap.Down)), human(float64(snap.Up))), 0, "", false, false)
 	t.addSeparator(menu)

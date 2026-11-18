@@ -54,6 +54,10 @@
 #      The old one-line format still works:
 #      PROXIES=user:pass@1.2.3.4:9405;5.6.7.8:8080
 #
+#      No PROXY= lines at all = direct mode: the program connects to the
+#      internet by itself, without any upstream proxy. That is how a VPS abroad
+#      becomes a standalone MTProto + SOCKS5 proxy.
+#
 #  RU  HTTP CONNECT-прокси, через которые пойдёт трафик Telegram.
 #      По одному прокси на строку:
 #
@@ -89,6 +93,10 @@
 #
 #      Старый формат одной строкой тоже поддерживается:
 #      PROXIES=user:pass@1.2.3.4:9405;5.6.7.8:8080
+#
+#      Ни одной строки PROXY= = режим без прокси (direct): программа выходит
+#      в интернет сама, без апстрима. Так обычный VPS за рубежом становится
+#      самостоятельным MTProto + SOCKS5-прокси.
 
 PROXY=
 

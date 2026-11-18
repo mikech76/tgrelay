@@ -12,7 +12,7 @@ import (
 const (
 	configName = "tgrelay.txt"
 	repoURL    = "https://github.com/mikech76/tgrelay"
-	version    = "1.2"
+	version    = "1.4"
 )
 
 var debugFlag = flag.Bool("debug", false, "подробный лог")
@@ -69,14 +69,15 @@ func loadApp(configPath string) (*Config, *Pool, *Stats, string, error) {
 	if cfg.MTPort == 0 && cfg.SocksPort == 0 {
 		return nil, nil, nil, path, fmt.Errorf("оба протокола выключены в tgrelay.txt — запускать нечего")
 	}
-	if len(cfg.Proxies) == 0 {
-		return nil, nil, nil, path, fmt.Errorf("в tgrelay.txt нет ни одного прокси (PROXY=)")
-	}
+
 	if cfg.Lang != "" {
 		setLang(cfg.Lang)
 	}
 	stats := NewStats()
 	pool := NewPool(cfg.Proxies, cfg.Hosts)
+	if pool.Direct() {
+		logf("режим: прямое подключение (PROXY= не заданы)")
+	}
 	go pool.HealthLoop(context.Background(), 60*time.Second)
 	return cfg, pool, stats, path, nil
 }

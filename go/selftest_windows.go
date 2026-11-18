@@ -53,9 +53,11 @@ Config file created / Создан файл настроек:
 ` + path + `
 
 EN: fill in PROXY= lines (your proxies, HTTP or SOCKS), save the file
-    and run the program again.
+    and run the program again. Leave PROXY= empty to work without any
+    upstream proxy (direct mode, e.g. on a VPS abroad).
 RU: впишите строки PROXY= (ваши прокси, HTTP или SOCKS), сохраните
-    и запустите программу заново.
+    и запустите программу заново. Оставьте PROXY= пустым, чтобы работать
+    без апстрим-прокси (direct, например на VPS за рубежом).
 
 SECRET / LANG are filled in automatically / заполнятся автоматически.`
 	shellExecute("open", path)

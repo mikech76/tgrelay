@@ -44,6 +44,8 @@ var texts = map[string]pair{
 	"copy_link":   {"Copy link — %s", "Копировать ссылку — %s"},
 	"qr_link":     {"Show QR code — %s", "Показать QR-код — %s"},
 	"proxies":     {"%d/%d proxies · %d connections", "Прокси %d/%d · соединений %d"},
+	"direct_mode": {"Direct connection (no proxies) · %d connections",
+	                "Прямое подключение (без прокси) · соединений %d"},
 	"speed":       {"↓ %s/s    ↑ %s/s", "↓ %s/с    ↑ %s/с"},
 	"total":       {"since start ↓ %s    ↑ %s", "всего ↓ %s    ↑ %s"},
 	"copied":      {"%s link copied", "Ссылка %s скопирована"},

@@ -145,6 +145,27 @@ plane and a dot in the corner. The dot colour is the current state:
 | red | no proxy is reachable |
 | grey | not running |
 
+## Direct mode (no proxies)
+
+If there are no `PROXY=` lines at all, the program does not use any upstream
+proxy: it connects to the internet directly. That turns it into a standalone
+proxy for a VPS abroad — clients connect to your server, and the server talks
+to Telegram (or to any site, for SOCKS5) itself.
+
+```ini
+# there are simply no PROXY= lines
+SECRET=9d4e215aeba83fe52b0764a4d1e5bdd3
+PROXY_PORT=55055
+SOCKS_PORT=55056
+SOCKS_HOST=0.0.0.0        # accept SOCKS5 from other machines too
+```
+
+- SOCKS5 in this mode works for any site, no restrictions.
+- MTProto needs Telegram to be reachable from the server itself. On a normal
+  VPS abroad it is; inside a country where Telegram is blocked it is not.
+- If you later add `PROXY=` lines and use **Reload config**, the program
+  switches back to the pool.
+
 ## Settings: one `tgrelay.txt` file
 
 Everything is in one file — proxies, ports, external name. No environment variables.

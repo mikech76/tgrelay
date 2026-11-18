@@ -62,6 +62,8 @@ sh build.sh             # dist/tgrelay.exe and dist/tgrelay-linux
 ```
 
 Two proxies start at once: MTProto on `55055`, SOCKS5 on `55056`.
+No `PROXY=` lines at all — direct mode: the server connects to the internet
+itself, which is what you want on a VPS abroad.
 Details: [go/README.md](go/README.md).
 
 ## Configuration (`tgrelay.txt`)

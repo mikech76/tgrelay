@@ -14,11 +14,15 @@ type Pool struct {
 	mu      sync.Mutex
 	proxies []*Proxy
 	targets []string
+	direct  bool // прокси нет — ходим напрямую
 }
 
 func NewPool(proxies []*Proxy, targets []string) *Pool {
-	return &Pool{proxies: proxies, targets: targets}
+	return &Pool{proxies: proxies, targets: targets, direct: len(proxies) == 0}
 }
+
+// Direct: пул пуст, соединения идут напрямую (сервер без апстрим-прокси).
+func (p *Pool) Direct() bool { return p.direct }
 
 func (p *Pool) Len() int { return len(p.proxies) }
 
@@ -47,6 +51,20 @@ func (p *Pool) candidates() []*Proxy {
 
 // Dial открывает туннель через пул: до четырёх попыток, мёртвые помечаются.
 func (p *Pool) Dial(host string, port int) (net.Conn, error) {
+	if p.direct {
+		address := net.JoinHostPort(host, strconv.Itoa(port))
+		dialer := net.Dialer{Timeout: 15 * time.Second}
+		conn, err := dialer.Dial("tcp", address)
+		if err != nil {
+			logf("прямое подключение %s не удалось: %v", address, err)
+			return nil, err
+		}
+		if tcp, ok := conn.(*net.TCPConn); ok {
+			_ = tcp.SetNoDelay(true)
+		}
+		return conn, nil
+	}
+
 	list := p.candidates()
 	rand.Shuffle(len(list), func(i, j int) { list[i], list[j] = list[j], list[i] })
 
@@ -94,7 +112,7 @@ func (p *Pool) HealthLoop(ctx context.Context, interval time.Duration) {
 }
 
 func (p *Pool) checkAll() {
-	if len(p.targets) == 0 {
+	if p.direct || len(p.targets) == 0 {
 		return
 	}
 	var wg sync.WaitGroup

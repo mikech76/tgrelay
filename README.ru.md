@@ -64,6 +64,8 @@ sh build.sh             # dist/tgrelay.exe и dist/tgrelay-linux
 ```
 
 Поднимаются сразу два прокси: MTProto на `55055`, SOCKS5 на `55056`.
+Без строк `PROXY=` — режим direct: сервер выходит в интернет сам, это то, что
+нужно на VPS за рубежом.
 Подробнее: [go/README.ru.md](go/README.ru.md).
 
 ## Настройки (`tgrelay.txt`)
