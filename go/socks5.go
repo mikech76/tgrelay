@@ -16,6 +16,7 @@ type Socks5 struct {
 	user   string
 	pass   string
 	bypass []*net.IPNet
+	stats  *Stats
 }
 
 func (s *Socks5) Serve(listener net.Listener) {
@@ -30,6 +31,10 @@ func (s *Socks5) Serve(listener net.Listener) {
 
 func (s *Socks5) handle(client net.Conn) {
 	defer client.Close()
+	if s.stats != nil {
+		s.stats.ConnOpen()
+		defer s.stats.ConnClose()
+	}
 	_ = client.SetDeadline(time.Now().Add(20 * time.Second))
 
 	br := bufio.NewReader(client)
@@ -140,8 +145,8 @@ func (s *Socks5) handle(client net.Conn) {
 	logf("%s -> %s:%d", client.RemoteAddr(), host, port)
 
 	done := make(chan struct{}, 2)
-	go func() { _, _ = io.Copy(upstream, br); done <- struct{}{} }()
-	go func() { _, _ = io.Copy(client, upstream); done <- struct{}{} }()
+	go func() { _, _ = io.Copy(&countWriter{w: upstream, stats: s.stats, up: true}, br); done <- struct{}{} }()
+	go func() { _, _ = io.Copy(&countWriter{w: client, stats: s.stats}, upstream); done <- struct{}{} }()
 	<-done
 }
 
@@ -195,4 +200,23 @@ func socksLink(host string, port int, user, pass string) string {
 		link += "&user=" + user + "&pass=" + pass
 	}
 	return link
+}
+
+// countWriter считает байты для строки состояния.
+type countWriter struct {
+	w     io.Writer
+	stats *Stats
+	up    bool
+}
+
+func (c *countWriter) Write(p []byte) (int, error) {
+	n, err := c.w.Write(p)
+	if n > 0 && c.stats != nil {
+		if c.up {
+			c.stats.Add(n, 0)
+		} else {
+			c.stats.Add(0, n)
+		}
+	}
+	return n, err
 }

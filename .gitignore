@@ -33,3 +33,6 @@ desktop/packaging/work/
 desktop/packaging/*.spec
 desktop/packaging/tgrelay.ico
 desktop/packaging/venv/
+
+# сборка Go
+go/dist/

@@ -1,0 +1,389 @@
+//go:build windows
+
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"sync/atomic"
+	"syscall"
+	"time"
+	"unsafe"
+)
+
+const (
+)
+
+type tray struct {
+	hwnd   uintptr
+	nid    notifyIconData
+	cfg    *Config
+	path   string
+	pool   *Pool
+	stats  *Stats
+	state  string
+	menu   uintptr
+	ids    map[uint32]func()
+	nextID uint32
+}
+
+var activeTray *tray
+
+func newTray(cfg *Config, path string, pool *Pool, stats *Stats) *tray {
+	t := &tray{
+		cfg: cfg, path: path, pool: pool, stats: stats,
+		state: "starting", ids: map[uint32]func(){}, nextID: 100,
+	}
+	t.init()
+	return t
+}
+
+func (t *tray) init() {
+	hInst, _, _ := pGetModuleHandleW.Call(0)
+	className := utf16Ptr(fmt.Sprintf("tgrelayTray%d", time.Now().UnixNano()))
+
+	cursor, _, _ := pLoadCursorW.Call(0, 32512) // IDC_ARROW
+	wc := wndClassEx{
+		cbSize:        uint32(unsafe.Sizeof(wndClassEx{})),
+		lpfnWndProc:   syscall.NewCallback(t.wndProc),
+		hInstance:     hInst,
+		hCursor:       cursor,
+		lpszClassName: className,
+	}
+	pRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc)))
+
+	hwnd, _, _ := pCreateWindowExW.Call(0,
+		uintptr(unsafe.Pointer(className)), 0, 0, 0, 0, 0, 0, 0, 0, hInst, 0)
+	t.hwnd = hwnd
+
+	t.nid = notifyIconData{
+		cbSize:           uint32(unsafe.Sizeof(notifyIconData{})),
+		hWnd:             hwnd,
+		uID:              1,
+		uFlags:           nifMessage | nifIcon | nifTip,
+		uCallbackMessage: wmApp + 1,
+		hIcon:            trayIcon("starting"),
+	}
+	copyTip(&t.nid.szTip, tr("tray_tip"))
+	pShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&t.nid)))
+
+	pSetTimer.Call(hwnd, 1, 1000, 0)
+}
+
+func (t *tray) wndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
+	switch msg {
+	case wmApp + 1:
+		switch uint32(lparam) {
+		case wmRButtonUp, wmContext:
+			t.showMenu()
+		case wmLButtonUp:
+			t.showMenu()
+		}
+		return 0
+	case wmTimer:
+		t.updateIcon()
+		return 0
+	case wmDestroy:
+		pPostQuitMessage.Call(0)
+		return 0
+	}
+	r, _, _ := pDefWindowProcW.Call(hwnd, msg, wparam, lparam)
+	return r
+}
+
+func (t *tray) run() {
+	activeTray = t
+	var msg msgStruct
+	for {
+		r, _, _ := pGetMessageW.Call(uintptr(unsafe.Pointer(&msg)), 0, 0, 0)
+		if int32(r) <= 0 {
+			break
+		}
+		pTranslateMessage.Call(uintptr(unsafe.Pointer(&msg)))
+		pDispatchMessageW.Call(uintptr(unsafe.Pointer(&msg)))
+	}
+}
+
+func (t *tray) updateIcon() {
+	state := t.stats.state(t.pool)
+	if state == t.state {
+		return
+	}
+	t.state = state
+	t.nid.uFlags = nifIcon
+	t.nid.hIcon = trayIcon(state)
+	pShellNotifyIconW.Call(nimModify, uintptr(unsafe.Pointer(&t.nid)))
+}
+
+// --- меню ------------------------------------------------------------------
+
+func (t *tray) id(action func()) uint32 {
+	t.nextID++
+	t.ids[t.nextID] = action
+	return t.nextID
+}
+
+func (t *tray) addItem(menu uintptr, text string, id uint32, icon string,
+	enabled, checked bool) {
+	var state uint32
+	if !enabled {
+		state |= mfsGrayed
+	}
+	if checked {
+		state |= mfsChecked
+	}
+
+	info := menuItemInfo{
+		fMask:      miiString | miiID | miiFType | miiState | miiBitmap,
+		fType:      mftString,
+		fState:     state,
+		wID:        id,
+		dwTypeData: utf16Ptr(text),
+	}
+	if icon != "" {
+		info.hbmpItem = menuBitmap(icon)
+	}
+	info.cbSize = uint32(unsafe.Sizeof(info))
+	pInsertMenuItemW.Call(menu, ^uintptr(0), 1, uintptr(unsafe.Pointer(&info)))
+}
+
+func (t *tray) addSeparator(menu uintptr) {
+	pAppendMenuW.Call(menu, mfSeparator, 0, 0)
+}
+
+func (t *tray) addSubmenu(menu uintptr, text, icon string) uintptr {
+	sub, _, _ := pCreatePopupMenu.Call()
+	info := menuItemInfo{
+		fMask:      miiString | miiFType | miiSub | miiBitmap,
+		fType:      mftString,
+		hSubMenu:   sub,
+		dwTypeData: utf16Ptr(text),
+	}
+	if icon != "" {
+		info.hbmpItem = menuBitmap(icon)
+	}
+	info.cbSize = uint32(unsafe.Sizeof(info))
+	pInsertMenuItemW.Call(menu, ^uintptr(0), 1, uintptr(unsafe.Pointer(&info)))
+	return sub
+}
+
+func (t *tray) showMenu() {
+	t.ids = map[uint32]func(){}
+	if t.menu != 0 {
+		pDestroyMenu.Call(t.menu)
+	}
+	menu, _, _ := pCreatePopupMenu.Call()
+	t.menu = menu
+
+	snap := t.stats.Snapshot()
+	alive, total := t.pool.Stats()
+
+	protocols := t.protocolLine()
+	t.addItem(menu, protocols, 0, "", false, false)
+	t.addItem(menu, fmt.Sprintf(tr("proxies"), alive, total, snap.Conns), 0, "", false, false)
+	t.addItem(menu, fmt.Sprintf(tr("speed"), human(snap.DownRate), human(snap.UpRate)), 0, "", false, false)
+	t.addItem(menu, fmt.Sprintf(tr("total"), human(float64(snap.Down)), human(float64(snap.Up))), 0, "", false, false)
+	t.addSeparator(menu)
+
+	localHost := lanIP()
+	external := t.cfg.External
+
+	if t.cfg.MTPort != 0 {
+		secret := hexSecret(t.cfg.Secret)
+		link := func(host string) string {
+			return mtprotoLink(host, t.cfg.MTPort, secret)
+		}
+		sub := t.addSubmenu(menu, "MTProto :"+strconv.Itoa(t.cfg.MTPort), "")
+		t.addLinkItems(sub, localHost, external, link, "MTProto")
+	}
+	if t.cfg.SocksPort != 0 {
+		socksHost := t.cfg.SocksHost
+		if socksHost == "" || socksHost == "0.0.0.0" {
+			socksHost = localHost
+		}
+		link := func(host string) string {
+			return socksLink(host, t.cfg.SocksPort, t.cfg.User, t.cfg.Pass)
+		}
+		sub := t.addSubmenu(menu, "SOCKS5 :"+strconv.Itoa(t.cfg.SocksPort), "")
+		t.addLinkItems(sub, socksHost, external, link, "SOCKS5")
+	}
+
+	t.addSeparator(menu)
+	t.addItem(menu, tr("settings"), t.id(t.openSettings), "menu_settings", true, false)
+
+	langMenu := t.addSubmenu(menu, tr("language"), "menu_language")
+	t.addItem(langMenu, "English", t.id(func() { t.setLang("en") }), "", true, lang() == "en")
+	t.addItem(langMenu, "Русский", t.id(func() { t.setLang("ru") }), "", true, lang() == "ru")
+
+	t.addItem(menu, tr("docs"), t.id(t.openDocs), "menu_docs", true, false)
+	t.addItem(menu, tr("about"), t.id(t.showAbout), "menu_about", true, false)
+	t.addSeparator(menu)
+	t.addItem(menu, tr("exit"), t.id(t.exit), "menu_exit", true, false)
+
+	pSetForegroundWindow.Call(t.hwnd)
+	var pt point
+	pGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
+	cmd, _, _ := pTrackPopupMenuEx.Call(menu,
+		tpmReturnCmd|tpmRightAlign, uintptr(pt.X), uintptr(pt.Y), t.hwnd, 0)
+	pPostMessageW.Call(t.hwnd, 0, 0, 0)
+	if cmd > 0 {
+		if action, ok := t.ids[uint32(cmd)]; ok {
+			action()
+		}
+	}
+}
+
+func (t *tray) addLinkItems(menu uintptr, localHost, external string,
+	link func(string) string, name string) {
+	host := localHost
+	t.addItem(menu, fmt.Sprintf(tr("copy_link"), host),
+		t.id(func() { t.copyLink(link(host), name) }), "copy_mtproto", true, false)
+	t.addItem(menu, fmt.Sprintf(tr("qr_link"), host),
+		t.id(func() { showQR(link(host)) }), "qr_mtproto", true, false)
+	if external != "" {
+		host = external
+		t.addItem(menu, fmt.Sprintf(tr("copy_link"), host),
+			t.id(func() { t.copyLink(link(host), name) }), "copy_mtproto", true, false)
+		t.addItem(menu, fmt.Sprintf(tr("qr_link"), host),
+			t.id(func() { showQR(link(host)) }), "qr_mtproto", true, false)
+	}
+}
+
+func (t *tray) protocolLine() string {
+	var parts []string
+	if t.cfg.MTPort != 0 {
+		parts = append(parts, "MTProto :"+strconv.Itoa(t.cfg.MTPort))
+	}
+	if t.cfg.SocksPort != 0 {
+		parts = append(parts, "SOCKS5 :"+strconv.Itoa(t.cfg.SocksPort))
+	}
+	out := ""
+	for i, part := range parts {
+		if i > 0 {
+			out += "   ·   "
+		}
+		out += part
+	}
+	return out
+}
+
+// --- действия --------------------------------------------------------------
+
+func (t *tray) copyLink(link, name string) {
+	setClipboard(link)
+	t.balloon(fmt.Sprintf(tr("copied"), name))
+}
+
+func (t *tray) balloon(text string) {
+	t.nid.uFlags = 0x00000010 // NIF_INFO
+	t.nid.dwInfoFlags = 0x00000001
+	t.nid.uVersion = 0
+	copyTip(&t.nid.szTip, tr("tray_tip"))
+	copyInfo(t.nid.szInfo[:], text)
+	copyInfo(t.nid.szInfoTitle[:], "tgrelay")
+	pShellNotifyIconW.Call(nimModify, uintptr(unsafe.Pointer(&t.nid)))
+}
+
+func (t *tray) setLang(code string) {
+	setLang(code)
+	writeConfigValue(t.path, "LANG", code)
+	copyTip(&t.nid.szTip, tr("tray_tip"))
+	// меню перечитывается при следующем открытии
+}
+
+func (t *tray) openDocs() {
+	url := repoURL + "/blob/main/desktop/README.md"
+	if lang() == "ru" {
+		url = repoURL + "/blob/main/desktop/README.ru.md"
+	}
+	shellExecute("open", url)
+}
+
+func (t *tray) showAbout() {
+	messageBox(fmt.Sprintf(tr("about_text"), version, repoURL), tr("about_title"), 0x40)
+}
+
+func (t *tray) openSettings() {
+	go watchSettings(t.path)
+}
+
+func (t *tray) exit() {
+	pShellNotifyIconW.Call(nimDelete, uintptr(unsafe.Pointer(&t.nid)))
+	pDestroyWindow.Call(t.hwnd)
+	os.Exit(0)
+}
+
+func copyInfo(dst []uint16, text string) {
+	src := u16(text)
+	for i := range dst {
+		if i < len(src) && i < len(dst)-1 {
+			dst[i] = src[i]
+		} else {
+			dst[i] = 0
+		}
+	}
+}
+
+var restarting atomic.Bool
+
+// watchSettings открывает Блокнот и перезапускает программу, если файл изменился.
+func watchSettings(path string) {
+	before := fileModTime(path)
+	cmd := launchNotepad(path)
+	if cmd == nil {
+		return
+	}
+	started := time.Now()
+	_ = cmd.Wait()
+	quick := time.Since(started) < 2*time.Second
+
+	if fileModTime(path) != before {
+		restartSelf()
+		return
+	}
+	if !quick {
+		return
+	}
+	deadline := time.Now().Add(30 * time.Minute)
+	for time.Now().Before(deadline) {
+		time.Sleep(time.Second)
+		if fileModTime(path) == before {
+			continue
+		}
+		settled := fileModTime(path)
+		for time.Now().Before(deadline) {
+			time.Sleep(time.Second)
+			current := fileModTime(path)
+			if current == settled {
+				restartSelf()
+				return
+			}
+			settled = current
+		}
+	}
+}
+
+func fileModTime(path string) int64 {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	return info.ModTime().UnixNano()
+}
+
+func restartSelf() {
+	if !restarting.CompareAndSwap(false, true) {
+		return
+	}
+	time.Sleep(500 * time.Millisecond)
+	exe, err := os.Executable()
+	if err != nil {
+		return
+	}
+	env := append(os.Environ(), "TGRELAY_HANDOFF=1")
+	cmd := &execSpec{path: exe, env: env, dir: filepath.Dir(exe)}
+	startDetached(cmd)
+	os.Exit(0)
+}

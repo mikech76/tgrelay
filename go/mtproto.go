@@ -40,6 +40,7 @@ type MTProto struct {
 	secret []byte
 	pool   *Pool
 	hosts  []string
+	stats  *Stats
 }
 
 func (m *MTProto) Serve(listener net.Listener) {
@@ -54,6 +55,10 @@ func (m *MTProto) Serve(listener net.Listener) {
 
 func (m *MTProto) handle(client net.Conn) {
 	defer client.Close()
+	if m.stats != nil {
+		m.stats.ConnOpen()
+		defer m.stats.ConnClose()
+	}
 	_ = client.SetDeadline(time.Now().Add(20 * time.Second))
 
 	init := make([]byte, handshakeLen)
@@ -126,12 +131,12 @@ func (m *MTProto) handle(client net.Conn) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		copyCTR(upstream, client, decStream, tgEnc)
+		copyCTR(upstream, client, decStream, tgEnc, m.stats, true)
 		upstream.Close()
 	}()
 	go func() {
 		defer wg.Done()
-		copyCTR(client, upstream, tgDec, encStream)
+		copyCTR(client, upstream, tgDec, encStream, m.stats, false)
 		client.Close()
 	}()
 	wg.Wait()
@@ -165,7 +170,8 @@ func ctrStreamRaw(key, iv []byte) cipher.Stream {
 }
 
 // copyCTR читает из src, расшифровывает и заново шифрует в dst.
-func copyCTR(dst net.Conn, src net.Conn, dec cipher.Stream, enc cipher.Stream) {
+func copyCTR(dst net.Conn, src net.Conn, dec cipher.Stream, enc cipher.Stream,
+	stats *Stats, up bool) {
 	buf := make([]byte, 65536)
 	for {
 		n, err := src.Read(buf)
@@ -174,6 +180,13 @@ func copyCTR(dst net.Conn, src net.Conn, dec cipher.Stream, enc cipher.Stream) {
 			enc.XORKeyStream(buf[:n], buf[:n])
 			if _, werr := dst.Write(buf[:n]); werr != nil {
 				return
+			}
+			if stats != nil {
+				if up {
+					stats.Add(n, 0)
+				} else {
+					stats.Add(0, n)
+				}
 			}
 		}
 		if err != nil {

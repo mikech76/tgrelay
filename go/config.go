@@ -22,6 +22,7 @@ type Config struct {
 	User      string
 	Pass      string
 	Hosts     []string // адреса Telegram для проверки живости
+	Lang      string
 }
 
 const (
@@ -100,6 +101,7 @@ func LoadConfig(path string) (*Config, error) {
 		SocksHost: defaultString(values["SOCKS_HOST"], "127.0.0.1"),
 		External:  values["EXTERNAL_HOST"],
 		User:      values["SOCKS_USER"],
+		Lang:      strings.ToLower(values["LANG"]),
 		Pass:      values["SOCKS_PASS"],
 	}
 
