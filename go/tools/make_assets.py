@@ -233,7 +233,11 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     for state in DOT:
         tray_icon(state, 64).save(os.path.join(OUT, 'icon_%s.png' % state))
-    tray_icon('ok', 256).save(os.path.join(OUT, 'app.png'))
+    icon = tray_icon('ok', 256)
+    icon.save(os.path.join(OUT, 'app.png'))
+    icon.save(os.path.join(OUT, 'app.ico'), format='ICO',
+              sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64),
+                     (128, 128), (256, 256)])
     for key in DRAW:
         render(key, 16).save(os.path.join(OUT, 'menu_%s.png' % key))
     print('assets:', sorted(os.listdir(OUT)))
