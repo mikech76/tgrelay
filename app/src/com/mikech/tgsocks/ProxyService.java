@@ -248,9 +248,22 @@ public class ProxyService extends Service {
         } else {
             b = new Notification.Builder(this);
         }
+        int accent;
+        if (errorText != null) {
+            accent = 0xFFE74C3C;                  // красный: ошибка
+        } else if (s == null) {
+            accent = 0xFF95A5A6;                  // серый: не запущено
+        } else {
+            int alive = s.aliveProxies();
+            accent = alive < 0 ? 0xFFF1C40F       // жёлтый: проверяем
+                    : alive == 0 ? 0xFFE74C3C     // красный: прокси мертвы
+                    : 0xFF2ECC71;                 // зелёный: всё работает
+        }
+
         b.setContentTitle(title)
                 .setContentText(text)
                 .setSmallIcon(R.drawable.ic_launcher)
+                .setColor(accent)
                 .setContentIntent(piOpen)
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)

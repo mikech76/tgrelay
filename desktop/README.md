@@ -132,6 +132,19 @@ Run manually without systemd:
 ./venv/bin/python run_headless.py
 ```
 
+### Status dot
+
+The tray icon (and the Android app icon) is a dark blue tile with a neon paper
+plane and a dot in the corner. The dot colour is the current state:
+
+| Dot | Meaning |
+|---|---|
+| green | everything works, proxies are alive |
+| cyan | traffic is flowing right now |
+| yellow | starting, proxies are being checked |
+| red | no proxy is reachable |
+| grey | not running |
+
 ## Settings: one `tgrelay.txt` file
 
 Everything is in one file — proxies, ports, external name. No environment variables.

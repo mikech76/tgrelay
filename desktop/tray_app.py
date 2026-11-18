@@ -12,6 +12,7 @@ import pyperclip
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 
+import app_icon
 import appdir
 import i18n
 import menu_icons
@@ -29,21 +30,9 @@ DOCS = {
 }
 
 
-def _make_icon():
-    size = 64
-    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    draw.ellipse([4, 4, 60, 60], fill=(0, 168, 132, 255))
-    try:
-        font = ImageFont.truetype("arial.ttf", 32)
-    except Exception:
-        font = ImageFont.load_default()
-    bbox = draw.textbbox((0, 0), "M", font=font)
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
-    draw.text(((size - tw) // 2, (size - th) // 2 - 2),
-              "M", fill="white", font=font)
-    return img
+def _make_icon(state='starting'):
+    """Иконка трея; точка в углу показывает состояние."""
+    return app_icon.render(state, 64)
 
 
 def mtproto_link(host=None):
@@ -160,6 +149,17 @@ def _status_total(item):
     return t('status_total',
              down=status.human(snap['down_total']),
              up=status.human(snap['up_total']))
+
+
+def tray_state(snap=None):
+    """Цвет точки: ok / traffic / starting / error."""
+    if snap is None:
+        snap = status.snapshot()
+    if snap['up_rate'] + snap['down_rate'] > 1024:
+        return 'traffic'
+    if snap['proxies_total'] and snap['proxies_alive'] == 0:
+        return 'error'
+    return 'ok'
 
 
 def _install_menu_refresh():
@@ -279,9 +279,29 @@ class TrayApp:
         return menu
 
     def run(self):
-        self.icon = pystray.Icon("tgrelay", _make_icon(),
+        self.icon = pystray.Icon("tgrelay", _make_icon('starting'),
                                  t('tray_tooltip'), self._build_menu())
+        threading.Thread(target=self._watch_state, daemon=True,
+                         name='tgrelay-icon').start()
         self.icon.run()
+
+    def _watch_state(self):
+        """Менять цвет точки при смене состояния (раз в секунду)."""
+        started = time.monotonic()
+        current = 'starting'
+        while True:
+            time.sleep(1.0)
+            try:
+                snap = status.snapshot()
+                if time.monotonic() - started < 6:
+                    state = 'starting'
+                else:
+                    state = tray_state(snap)
+                if state != current:
+                    current = state
+                    self.icon.icon = _make_icon(state)
+            except Exception:
+                continue
 
     def _set_lang(self, value):
         i18n.set_lang(value)

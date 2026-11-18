@@ -1,13 +1,38 @@
-<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp"
-    android:height="48dp"
-    android:viewportWidth="48"
-    android:viewportHeight="48">
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- фон: тёмно-синий скруглённый квадрат -->
     <path
-        android:fillColor="#00A884"
-        android:pathData="M24,24m-22,0a22,22 0,1 1,44 0a22,22 0,1 1,-44 0" />
+        android:fillColor="#0B1B5C"
+        android:pathData="M24,0 H84 A24,24 0 0 1 108,24 V84 A24,24 0 0 1 84,108 H24 A24,24 0 0 1 0,84 V24 A24,24 0 0 1 24,0 Z" />
+    <!-- неоновые дуги -->
+    <path
+        android:pathData="M30,36 A28,28 0 0 1 78,36"
+        android:strokeColor="#3CD6FF"
+        android:strokeWidth="4.8"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M40,38 A18,18 0 0 1 68,38"
+        android:strokeColor="#3CD6FF"
+        android:strokeWidth="4.4"
+        android:strokeLineCap="round" />
+
+    <!-- самолётик -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M13,33 L17.5,15 L24,26 L30.5,15 L35,33 L31,33 L29,23 L24.8,30 L23.2,30 L19,23 L17,33 Z" />
+        android:pathData="M22,61 L86,38 L58,82 L51,66 Z" />
+    <path
+        android:fillColor="#BEE2FF"
+        android:pathData="M51,66 L58,82 L47,72 Z" />
+
+    <!-- точка статуса (зелёная по умолчанию) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M82,86 m-13,0 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0" />
+    <path
+        android:fillColor="#2ECC71"
+        android:pathData="M82,86 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
 </vector>
