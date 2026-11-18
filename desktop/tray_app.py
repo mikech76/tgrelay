@@ -21,7 +21,7 @@ from i18n import t
 from proxy_pool import (config, external_host, lan_ip, port_value,
                         save_env_value)
 
-VERSION = '1.1'
+VERSION = '1.2'
 REPO_URL = 'https://github.com/mikech76/tgrelay'
 DOCS = {
     'en': REPO_URL + '/blob/main/desktop/README.md',
