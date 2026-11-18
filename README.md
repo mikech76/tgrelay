@@ -105,6 +105,8 @@ SOCKS_PASS=
   MTProto and SOCKS5 then do not start and their tray items disappear.
 - Leave `SECRET` empty: on first launch the program offers to generate a key
   and writes it into `tgrelay.txt` for you.
+- Upgrading from an older build? The config used to be named `.env`; it is
+  picked up and renamed to `tgrelay.txt` automatically on the first run.
 
 ## Where to buy proxies
 
