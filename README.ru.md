@@ -36,7 +36,7 @@ Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → прок
 
 ## Android
 
-1. Установите APK из раздела **Releases**.
+1. Установите APK: [tgrelay-android.apk](https://github.com/mikech76/tgrelay/releases/latest/download/tgrelay-android.apk).
 2. Откройте приложение, вставьте прокси (по одному в строке), нажмите
    **«Сохранить список»**.
 3. Нажмите **«Включить»**, затем **«Настроить Telegram»**.

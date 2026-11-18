@@ -36,7 +36,7 @@ without buying an expensive MTProto plan.
 
 ## Android
 
-1. Install the APK from **Releases**.
+1. Install the APK: [tgrelay-android.apk](https://github.com/mikech76/tgrelay/releases/latest/download/tgrelay-android.apk).
 2. Open the app, paste your proxies (one per line), tap **Save list**.
 3. Tap **Enable**, then **Set up Telegram**.
 

@@ -1,7 +1,8 @@
 # tgrelay for Android
 
 A local SOCKS5 proxy for Telegram: the phone runs a server on `127.0.0.1:55056`
-and forwards traffic through your pool of HTTP CONNECT proxies.
+and forwards traffic through your pool of upstream proxies — HTTP CONNECT,
+HTTPS, SOCKS5 or SOCKS4.
 
 **Русская версия: [README.ru.md](README.ru.md)**
 
@@ -18,7 +19,14 @@ and forwards traffic through your pool of HTTP CONNECT proxies.
    ```
    user:password@1.2.3.4:9405
    5.6.7.8:8080
+   socks5://user:password@1.2.3.4:1080
+   https://user:password@5.6.7.8:8443
    ```
+
+   Without a scheme the type is detected automatically (HTTP first, then
+   SOCKS5, then SOCKS4) and remembered. Available schemes: `http://`,
+   `https://`, `socks5://`, `socks://` (5 by default), `socks4://`,
+   `socks4a://`. The port may be omitted: http 8080, https 443, socks 1080.
 
    Comments are allowed: a line starting with `#` is ignored, and everything
    after ` #` is ignored too. Comment out a proxy to disable it temporarily.

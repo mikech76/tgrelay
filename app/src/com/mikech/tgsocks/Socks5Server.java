@@ -1,6 +1,5 @@
 package com.mikech.tgsocks;
 
-import android.util.Base64;
 import android.util.Log;
 
 import java.io.BufferedInputStream;
@@ -22,7 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Локальный SOCKS5-сервер. Принимает соединения только с 127.0.0.1
- * и передаёт их через пул HTTP CONNECT-прокси.
+ * и передаёт их через пул прокси (HTTP CONNECT или SOCKS).
  * Трафик не расшифровывается: SOCKS5 передаёт только адрес и порт.
  */
 public class Socks5Server {
@@ -291,45 +290,8 @@ public class Socks5Server {
 
     private Upstream connectVia(Proxies.P p, String host, int port, int timeoutMs)
             throws IOException {
-        Socket s = new Socket();
-        try {
-            s.connect(new InetSocketAddress(p.host, p.port), timeoutMs);
-            s.setTcpNoDelay(true);
-            s.setSoTimeout(timeoutMs);
-
-            OutputStream out = s.getOutputStream();
-            InputStream in = new BufferedInputStream(s.getInputStream());
-
-            String target = (host.indexOf(':') >= 0 ? "[" + host + "]" : host) + ":" + port;
-            StringBuilder req = new StringBuilder();
-            req.append("CONNECT ").append(target).append(" HTTP/1.1\r\n");
-            req.append("Host: ").append(target).append("\r\n");
-            if (!p.user.isEmpty()) {
-                String cred = p.user + ":" + p.pass;
-                String b64 = Base64.encodeToString(
-                        cred.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
-                req.append("Proxy-Authorization: Basic ").append(b64).append("\r\n");
-            }
-            req.append("\r\n");
-            out.write(req.toString().getBytes(StandardCharsets.ISO_8859_1));
-            out.flush();
-
-            String status = readLine(in);
-            if (status == null || !status.contains(" 200")) {
-                throw new IOException("proxy: " + status);
-            }
-            while (true) {
-                String line = readLine(in);
-                if (line == null || line.isEmpty()) {
-                    break;
-                }
-            }
-            s.setSoTimeout(0);
-            return new Upstream(s, in, out);
-        } catch (IOException e) {
-            closeQuietly(s);
-            throw e;
-        }
+        Tunnel.Conn c = Tunnel.open(p, host, port, timeoutMs);
+        return new Upstream(c.socket, c.in, c.out);
     }
 
     private void healthLoop() {
@@ -360,23 +322,6 @@ public class Socks5Server {
         } catch (Exception e) {
             return false;
         }
-    }
-
-    private static String readLine(InputStream in) throws IOException {
-        ByteArrayOutputStream b = new ByteArrayOutputStream();
-        int c;
-        while ((c = in.read()) != -1) {
-            if (c == '\n') {
-                break;
-            }
-            if (c != '\r') {
-                b.write(c);
-            }
-        }
-        if (c == -1 && b.size() == 0) {
-            return null;
-        }
-        return new String(b.toByteArray(), StandardCharsets.ISO_8859_1);
     }
 
     private static void readFully(InputStream in, byte[] buf) throws IOException {
