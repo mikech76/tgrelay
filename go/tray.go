@@ -215,13 +215,15 @@ func (t *tray) showMenu() {
 	t.addSeparator(menu)
 	settings := t.addSubmenu(menu, tr("settings"), "menu_settings")
 	t.addItem(settings, tr("edit_config"), t.id(t.openSettings), "menu_edit", true, false)
-	t.addItem(settings, tr("autostart"), t.id(t.toggleAutostart), "menu_autostart", true,
+	t.addItem(settings, tr("autostart"), t.id(t.toggleAutostart), "", true,
 		autostartEnabled())
 	t.addItem(settings, tr("reload"), t.id(t.reloadConfig), "menu_reload", true, false)
 
 	langMenu := t.addSubmenu(menu, tr("language"), "menu_language")
-	t.addItem(langMenu, "English", t.id(func() { t.setLang("en") }), "menu_lang_en", true, lang() == "en")
-	t.addItem(langMenu, "Русский", t.id(func() { t.setLang("ru") }), "menu_lang_ru", true, lang() == "ru")
+	t.addItem(langMenu, checkMark("English", lang() == "en"),
+		t.id(func() { t.setLang("en") }), "menu_lang_en", true, false)
+	t.addItem(langMenu, checkMark("Русский", lang() == "ru"),
+		t.id(func() { t.setLang("ru") }), "menu_lang_ru", true, false)
 
 	t.addItem(menu, tr("docs"), t.id(t.openDocs), "menu_docs", true, false)
 	t.addItem(menu, tr("about"), t.id(t.showAbout), "menu_about", true, false)
@@ -411,4 +413,13 @@ func restartSelf() {
 	cmd := &execSpec{path: exe, env: env, dir: filepath.Dir(exe)}
 	startDetached(cmd)
 	os.Exit(0)
+}
+
+// checkMark добавляет галочку к тексту: у пунктов с картинкой служебная
+// колонка занята иконкой, и системная галочка не видна.
+func checkMark(text string, checked bool) string {
+	if checked {
+		return text + "  ✓"
+	}
+	return text
 }
