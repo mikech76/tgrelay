@@ -2,10 +2,10 @@ package main
 
 import (
 	"crypto/aes"
+	"fmt"
 	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
 	"io"
 	"net"
 	"strconv"
@@ -37,10 +37,10 @@ var reservedStarts = [][]byte{
 
 // MTProto — прокси-сервер Telegram (MTProto) поверх пула.
 type MTProto struct {
-	secret []byte
-	pool   *Pool
-	hosts  []string
-	stats  *Stats
+	secrets [][]byte
+	pool    *Pool
+	hosts   []string
+	stats   *Stats
 }
 
 func (m *MTProto) Serve(listener net.Listener) {
@@ -66,21 +66,33 @@ func (m *MTProto) handle(client net.Conn) {
 		return
 	}
 
-	// разбор ключей клиента
-	decKey := sha256.Sum256(append(append([]byte{}, init[8:40]...), m.secret...))
-	decStream := ctrStream(decKey[:], init[40:56])
-
-	plain := make([]byte, handshakeLen)
-	decStream.XORKeyStream(plain, init) // позиция 64 — инициализация уже расшифрована
-
-	tag := plain[56:60]
-	if !validTag(tag) {
-		logf("неизвестный proto tag: %s", hex.EncodeToString(tag))
+	// разбор ключей клиента: подходит любой из выданных секретов
+	prekey := init[8:40]
+	iv := init[40:56]
+	var decStream cipher.Stream
+	var plain []byte
+	var secret []byte
+	secretIndex := 0
+	for idx, candidate := range m.secrets {
+		key := sha256.Sum256(append(append([]byte{}, prekey...), candidate...))
+		stream := ctrStream(key[:], iv)
+		buf := make([]byte, handshakeLen)
+		stream.XORKeyStream(buf, init)
+		if validTag(buf[56:60]) {
+			decStream, plain, secret = stream, buf, candidate
+			secretIndex = idx + 1
+			break
+		}
+	}
+	if secret == nil {
+		logf("неизвестный proto tag — секрет не подошёл")
 		return
 	}
 
+	tag := plain[56:60]
+
 	rev := reverse(init[8:56])
-	encKey := sha256.Sum256(append(append([]byte{}, rev[:32]...), m.secret...))
+	encKey := sha256.Sum256(append(append([]byte{}, rev[:32]...), secret...))
 	encStream := ctrStream(encKey[:], rev[32:])
 
 	dcID := int16(binary.LittleEndian.Uint16(plain[60:62]))
@@ -127,16 +139,17 @@ func (m *MTProto) handle(client net.Conn) {
 	}
 	logf("туннель %s:443", host)
 
+	label := fmt.Sprintf("mtproto#%d", secretIndex)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		copyCTR(upstream, client, decStream, tgEnc, m.stats, true)
+		copyCTR(upstream, client, decStream, tgEnc, m.stats, true, label)
 		upstream.Close()
 	}()
 	go func() {
 		defer wg.Done()
-		copyCTR(client, upstream, tgDec, encStream, m.stats, false)
+		copyCTR(client, upstream, tgDec, encStream, m.stats, false, label)
 		client.Close()
 	}()
 	wg.Wait()
@@ -171,7 +184,7 @@ func ctrStreamRaw(key, iv []byte) cipher.Stream {
 
 // copyCTR читает из src, расшифровывает и заново шифрует в dst.
 func copyCTR(dst net.Conn, src net.Conn, dec cipher.Stream, enc cipher.Stream,
-	stats *Stats, up bool) {
+	stats *Stats, up bool, label string) {
 	buf := make([]byte, 65536)
 	for {
 		n, err := src.Read(buf)
@@ -187,6 +200,7 @@ func copyCTR(dst net.Conn, src net.Conn, dec cipher.Stream, enc cipher.Stream,
 				} else {
 					stats.Add(0, n)
 				}
+				stats.AddUser(label, up, n)
 			}
 		}
 		if err != nil {

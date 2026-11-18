@@ -1,75 +1,71 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 )
 
-func lanIP() string {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		return "127.0.0.1"
-	}
-	defer conn.Close()
-	if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
-		return addr.IP.String()
-	}
-	return "127.0.0.1"
-}
-
-func mtprotoLink(host string, port int, secret string) string {
-	return "tg://proxy?server=" + host + "&port=" + strconv.Itoa(port) + "&secret=" + secret
-}
-
 func main() {
-	configPath := flag.String("config", "", "путь к tgrelay.txt")
-	showVersion := flag.Bool("version", false, "версия и выход")
-	headless := flag.Bool("headless", false, "без трея, только серверы")
-	selftest := flag.String("selftest", "", "проверка: clip|qr|settings")
-	flag.Parse()
-	_ = debugFlag
+	args := os.Args[1:]
+	configPath := ""
+	headless := false
+	var rest []string
 
-	if *showVersion {
-		fmt.Println("tgrelay", version)
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--config", "-config", "-c":
+			if i+1 < len(args) {
+				configPath = args[i+1]
+				i++
+			}
+		case "--headless", "-headless":
+			headless = true
+		default:
+			rest = append(rest, args[i])
+		}
+	}
+
+	if runCLI(rest, configPath) {
 		return
 	}
+	runServer(configPath, headless)
+}
 
-	cfgPath := *configPath
-	if cfgPath == "" {
-		cfgPath = findConfig()
+func runServer(configPath string, headless bool) {
+	path := configPath
+	if path == "" {
+		path = findConfig()
 	}
-	if _, created := ensureConfig(cfgPath); created {
-		showFirstRun(cfgPath)
+	createdPath, created := ensureConfig(path)
+	if created {
+		showFirstRun(createdPath)
 		return
 	}
+	path = createdPath
 
-	cfg, pool, stats, path, err := loadApp(*configPath)
+	initLog(filepath.Join(filepath.Dir(path), "tgrelay.log"))
+
+	app, err := NewApp(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	initLog(filepath.Join(filepath.Dir(path), "tgrelay.log"))
+	appInstance = app
+
+	if err := app.Start(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	defer app.Stop()
+
 	logf("конфиг: %s", path)
-	logf("прокси: %d", len(pool.proxies))
-	for _, pr := range pool.proxies {
+	logf("прокси: %d", len(app.Cfg.Proxies))
+	for _, pr := range app.Pool.proxies {
 		logf("  %s (%s)", pr.Addr(), kindOrAuto(pr.Kind()))
 	}
+	logf("секретов MTProto: %d, пользователей SOCKS5: %d",
+		len(app.Cfg.Secrets), len(app.Cfg.Users))
 
-	if *selftest != "" {
-		runSelftest(*selftest, path, cfg)
-		return
-	}
-
-	servers, err := StartServers(cfg, pool, stats)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	defer servers.Close()
-
-	runUI(cfg, path, pool, stats, *headless)
+	runUI(app, headless)
 }

@@ -12,23 +12,24 @@ import (
 )
 
 // runUI запускает трей (или ждёт сигнала в режиме --headless).
-func runUI(cfg *Config, path string, pool *Pool, stats *Stats, headless bool) {
+func runUI(app *App, headless bool) {
 	if headless || !singleInstance() {
-		printLinks(cfg)
+		printLinks(app)
 		select {}
 	}
-	t := newTray(cfg, path, pool, stats)
+	t := newTray(app)
 	logf("трей: окно создано")
-	printLinks(cfg)
+	printLinks(app)
 	logf("трей: вход в цикл сообщений")
 	t.run()
 	logf("трей: цикл завершён")
 }
 
-func printLinks(cfg *Config) {
+func printLinks(app *App) {
+	cfg := app.Cfg
 	local := lanIP()
 	if cfg.MTPort != 0 {
-		secret := hexSecret(cfg.Secret)
+		secret := hexSecret(firstSecret(cfg))
 		fmt.Println("MTProto link:", mtprotoLink(local, cfg.MTPort, secret))
 		if cfg.External != "" {
 			fmt.Println("MTProto link (external):",

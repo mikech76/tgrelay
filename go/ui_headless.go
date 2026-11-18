@@ -10,10 +10,11 @@ import (
 )
 
 // runUI без трея: печатаем ссылки и ждём SIGINT/SIGTERM.
-func runUI(cfg *Config, path string, pool *Pool, stats *Stats, headless bool) {
+func runUI(app *App, headless bool) {
+	cfg := app.Cfg
 	local := lanIP()
 	if cfg.MTPort != 0 {
-		secret := hexSecret(cfg.Secret)
+		secret := hexSecret(firstSecret(cfg))
 		fmt.Println("MTProto link:", mtprotoLink(local, cfg.MTPort, secret))
 		if cfg.External != "" {
 			fmt.Println("MTProto link (external):",

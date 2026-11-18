@@ -13,8 +13,7 @@ import (
 // Socks5 — локальный SOCKS5-сервер, трафик идёт через пул.
 type Socks5 struct {
 	pool   *Pool
-	user   string
-	pass   string
+	users  []UserPass
 	bypass []*net.IPNet
 	stats  *Stats
 }
@@ -50,8 +49,9 @@ func (s *Socks5) handle(client net.Conn) {
 		return
 	}
 
+	login := ""
 	trusted := s.isTrusted(client.RemoteAddr())
-	wantAuth := !trusted && s.user != ""
+	wantAuth := !trusted && len(s.users) > 0
 	hasAuth := false
 	hasNone := false
 	for _, m := range methods {
@@ -67,7 +67,7 @@ func (s *Socks5) handle(client net.Conn) {
 	switch {
 	case wantAuth && hasAuth:
 		method = 0x02
-	case hasNone && (trusted || s.user == ""):
+	case hasNone && (trusted || len(s.users) == 0):
 		method = 0x00
 	case hasAuth:
 		method = 0x02
@@ -96,8 +96,16 @@ func (s *Socks5) handle(client net.Conn) {
 		if _, err := io.ReadFull(br, passwd); err != nil {
 			return
 		}
-		ok := subtle.ConstantTimeCompare(user, []byte(s.user)) == 1 &&
-			subtle.ConstantTimeCompare(passwd, []byte(s.pass)) == 1
+		ok := false
+		for _, account := range s.users {
+			match := subtle.ConstantTimeCompare(user, []byte(account.User)) == 1 &&
+				subtle.ConstantTimeCompare(passwd, []byte(account.Pass)) == 1
+			if match {
+				ok = true
+				login = account.User
+				break
+			}
+		}
 		answer := []byte{0x01, 0x01}
 		if ok {
 			answer[1] = 0x00
@@ -145,8 +153,14 @@ func (s *Socks5) handle(client net.Conn) {
 	logf("%s -> %s:%d", client.RemoteAddr(), host, port)
 
 	done := make(chan struct{}, 2)
-	go func() { _, _ = io.Copy(&countWriter{w: upstream, stats: s.stats, up: true}, br); done <- struct{}{} }()
-	go func() { _, _ = io.Copy(&countWriter{w: client, stats: s.stats}, upstream); done <- struct{}{} }()
+	go func() {
+		_, _ = io.Copy(&countWriter{w: upstream, stats: s.stats, up: true, user: login}, br)
+		done <- struct{}{}
+	}()
+	go func() {
+		_, _ = io.Copy(&countWriter{w: client, stats: s.stats, user: login}, upstream)
+		done <- struct{}{}
+	}()
 	<-done
 }
 
@@ -207,6 +221,7 @@ type countWriter struct {
 	w     io.Writer
 	stats *Stats
 	up    bool
+	user  string
 }
 
 func (c *countWriter) Write(p []byte) (int, error) {
@@ -217,6 +232,7 @@ func (c *countWriter) Write(p []byte) (int, error) {
 		} else {
 			c.stats.Add(0, n)
 		}
+		c.stats.AddUser(c.user, c.up, n)
 	}
 	return n, err
 }

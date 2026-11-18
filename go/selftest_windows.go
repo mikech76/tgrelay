@@ -17,7 +17,7 @@ func runSelftest(kind, path string, cfg *Config) {
 		setClipboard(text)
 		fmt.Println("clipboard set:", text)
 	case "qr":
-		link := mtprotoLink("127.0.0.1", cfg.MTPort, hexSecret(cfg.Secret))
+		link := mtprotoLink("127.0.0.1", cfg.MTPort, hexSecret(firstSecret(cfg)))
 		showQR(link)
 		time.Sleep(500 * time.Millisecond)
 		qrPath := filepath.Join(os.TempDir(), "tgrelay-qr.png")

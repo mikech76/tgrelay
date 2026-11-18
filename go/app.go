@@ -1,94 +1,292 @@
 package main
 
 import (
-	"context"
-	"flag"
+	"bufio"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
 
-const (
-	configName = "tgrelay.txt"
-	repoURL    = "https://github.com/mikech76/tgrelay"
-	version    = "1.4"
-)
-
-var debugFlag = flag.Bool("debug", false, "подробный лог")
-
-var logFile *os.File
-
-// initLog дублирует лог в файл рядом с конфигом (в exe нет консоли).
-func initLog(path string) {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err == nil {
-		logFile = f
-	}
+// App — всё приложение: конфиг, пул, серверы и канал управления.
+type App struct {
+	mu      sync.Mutex
+	Cfg     *Config
+	Pool    *Pool
+	Stats   *Stats
+	Path    string
+	servers *Servers
+	ctl     net.Listener
+	ctlFile string
+	started time.Time
+	running bool
 }
 
-func logf(format string, args ...any) {
-	stamp := time.Now().Format("2006-01-02 15:04:05")
-	line := fmt.Sprintf("%s %s", stamp, fmt.Sprintf(format, args...))
-	fmt.Println(line)
-	if logFile != nil {
-		fmt.Fprintln(logFile, line)
-	}
-}
+var appInstance *App
 
-func kindOrAuto(kind string) string {
-	if kind == "" {
-		return "авто"
-	}
-	return kind
-}
-
-func findConfig() string {
-	candidates := []string{"tgrelay.txt"}
-	if exe, err := os.Executable(); err == nil {
-		candidates = append([]string{filepath.Join(filepath.Dir(exe), "tgrelay.txt")}, candidates...)
-	}
-	for _, path := range candidates {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-	return "tgrelay.txt"
-}
-
-// loadApp читает конфиг и собирает пул; используется и треем, и headless.
-func loadApp(configPath string) (*Config, *Pool, *Stats, string, error) {
-	path := configPath
-	if path == "" {
-		path = findConfig()
-	}
+func NewApp(path string) (*App, error) {
 	cfg, err := LoadConfig(path)
 	if err != nil {
-		return nil, nil, nil, path, fmt.Errorf("не читается %s: %w", path, err)
+		return nil, fmt.Errorf("не читается %s: %w", path, err)
 	}
-	if cfg.MTPort == 0 && cfg.SocksPort == 0 {
-		return nil, nil, nil, path, fmt.Errorf("оба протокола выключены в tgrelay.txt — запускать нечего")
+	if err := validate(cfg); err != nil {
+		return nil, err
 	}
-
-	if cfg.Lang != "" {
-		setLang(cfg.Lang)
-	}
-	stats := NewStats()
-	pool := NewPool(cfg.Proxies, cfg.Hosts)
-	if pool.Direct() {
-		logf("режим: прямое подключение (PROXY= не заданы)")
-	}
-	go pool.HealthLoop(context.Background(), 60*time.Second)
-	return cfg, pool, stats, path, nil
+	app := &App{Cfg: cfg, Path: path, started: time.Now()}
+	app.Stats = NewStats()
+	app.Pool = NewPool(cfg.Proxies, cfg.Hosts)
+	return app, nil
 }
 
-// hexSecret — SECRET в виде hex для ссылок.
-func hexSecret(secret []byte) string {
-	const digits = "0123456789abcdef"
-	out := make([]byte, len(secret)*2)
-	for i, b := range secret {
-		out[i*2] = digits[b>>4]
-		out[i*2+1] = digits[b&0x0f]
+func validate(cfg *Config) error {
+	if cfg.MTPort == 0 && cfg.SocksPort == 0 {
+		return fmt.Errorf("оба протокола выключены в tgrelay.txt — запускать нечего")
 	}
-	return string(out)
+	return nil
+}
+
+// Start поднимает серверы и канал управления.
+func (a *App) Start() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	servers, err := StartServers(a.Cfg, a.Pool, a.Stats)
+	if err != nil {
+		return err
+	}
+	a.servers = servers
+	a.running = true
+	if a.Pool.Direct() {
+		logf("режим: прямое подключение (PROXY= не заданы)")
+	}
+	go a.Pool.HealthLoop(appContext, 60*time.Second)
+	a.startControl()
+	return nil
+}
+
+// Reload перечитывает конфиг и перезапускает серверы на месте (без выхода).
+func (a *App) Reload() error {
+	cfg, err := LoadConfig(a.Path)
+	if err != nil {
+		return fmt.Errorf("конфиг не прочитан: %w", err)
+	}
+	if err := validate(cfg); err != nil {
+		return err
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.servers != nil {
+		a.servers.Close()
+	}
+	a.Cfg = cfg
+	a.Pool = NewPool(cfg.Proxies, cfg.Hosts)
+	servers, err := StartServers(a.Cfg, a.Pool, a.Stats)
+	if err != nil {
+		return err
+	}
+	a.servers = servers
+	go a.Pool.HealthLoop(appContext, 60*time.Second)
+	if a.Pool.Direct() {
+		logf("режим: прямое подключение (PROXY= не заданы)")
+	}
+	return nil
+}
+
+// Stop закрывает серверы и канал управления.
+func (a *App) Stop() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.servers != nil {
+		a.servers.Close()
+		a.servers = nil
+	}
+	if a.ctl != nil {
+		_ = a.ctl.Close()
+		a.ctl = nil
+	}
+	if a.ctlFile != "" {
+		_ = os.Remove(a.ctlFile)
+	}
+	a.running = false
+}
+
+// Status — текстовый отчёт для CLI и канала управления.
+func (a *App) Status() string {
+	snap := a.Stats.Snapshot()
+	alive, total := a.Pool.Stats()
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "version: %s\n", version)
+	fmt.Fprintf(&b, "pid: %d\n", os.Getpid())
+	fmt.Fprintf(&b, "config: %s\n", a.Path)
+	fmt.Fprintf(&b, "uptime: %s\n", formatDuration(time.Since(a.started)))
+	if a.Pool.Direct() {
+		b.WriteString("mode: direct (no proxies)\n")
+	} else {
+		fmt.Fprintf(&b, "mode: pool\nproxies: %d/%d alive\n", alive, total)
+	}
+	if a.Cfg.MTPort != 0 {
+		fmt.Fprintf(&b, "mtproto: 0.0.0.0:%d\n", a.Cfg.MTPort)
+	}
+	if a.Cfg.SocksPort != 0 {
+		fmt.Fprintf(&b, "socks5: %s:%d\n", a.Cfg.SocksHost, a.Cfg.SocksPort)
+	}
+	fmt.Fprintf(&b, "connections: %d\n", snap.Conns)
+	fmt.Fprintf(&b, "traffic: up %s, down %s\n",
+		human(float64(snap.Up)), human(float64(snap.Down)))
+	if lines := a.Stats.UserLines(); len(lines) > 0 {
+		b.WriteString("users:\n")
+		for _, line := range lines {
+			fmt.Fprintf(&b, "  %s\n", line)
+		}
+	}
+	return b.String()
+}
+
+// Links возвращает ссылки для Telegram.
+func (a *App) Links() string {
+	local := lanIP()
+	var out strings.Builder
+	if a.Cfg.MTPort != 0 {
+		secret := hexSecret(firstSecret(a.Cfg))
+		fmt.Fprintf(&out, "mtproto: %s\n", mtprotoLink(local, a.Cfg.MTPort, secret))
+		if a.Cfg.External != "" {
+			fmt.Fprintf(&out, "mtproto-external: %s\n",
+				mtprotoLink(a.Cfg.External, a.Cfg.MTPort, secret))
+		}
+	}
+	if a.Cfg.SocksPort != 0 {
+		host := a.Cfg.SocksHost
+		if host == "" || host == "0.0.0.0" {
+			host = local
+		}
+		fmt.Fprintf(&out, "socks5: %s\n", socksLink(host, a.Cfg.SocksPort, a.Cfg.User, a.Cfg.Pass))
+		if a.Cfg.External != "" {
+			fmt.Fprintf(&out, "socks5-external: %s\n",
+				socksLink(a.Cfg.External, a.Cfg.SocksPort, a.Cfg.User, a.Cfg.Pass))
+		}
+	}
+	return out.String()
+}
+
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	s := int(d.Seconds()) % 60
+	if h > 0 {
+		return fmt.Sprintf("%dh%02dm", h, m)
+	}
+	if m > 0 {
+		return fmt.Sprintf("%dm%02ds", m, s)
+	}
+	return strconv.Itoa(s) + "s"
+}
+
+// --- канал управления ------------------------------------------------------
+
+const ctlName = "tgrelay.ctl"
+
+func (a *App) startControl() {
+	path := filepath.Join(filepath.Dir(a.Path), ctlName)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return
+	}
+	a.ctl = listener
+	a.ctlFile = path
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	token := randomToken()
+	content := fmt.Sprintf("%d %s\n", port, token)
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		listener.Close()
+		a.ctl = nil
+		return
+	}
+	go a.serveControl(listener, token)
+}
+
+func (a *App) serveControl(listener net.Listener, token string) {
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		go func(c net.Conn) {
+			defer c.Close()
+			_ = c.SetDeadline(time.Now().Add(15 * time.Second))
+			line, err := bufio.NewReader(c).ReadString('\n')
+			if err != nil {
+				return
+			}
+			fields := strings.Fields(line)
+			if len(fields) != 2 || fields[0] != token {
+				fmt.Fprintln(c, "error: bad token")
+				return
+			}
+			switch fields[1] {
+			case "status":
+				fmt.Fprint(c, a.Status())
+			case "links":
+				fmt.Fprint(c, a.Links())
+			case "reload":
+				if err := a.Reload(); err != nil {
+					fmt.Fprintf(c, "error: %v\n", err)
+					return
+				}
+				fmt.Fprintln(c, "reloaded")
+			case "stop":
+				fmt.Fprintln(c, "stopping")
+				go func() {
+					time.Sleep(200 * time.Millisecond)
+					a.Stop()
+					os.Exit(0)
+				}()
+			default:
+				fmt.Fprintln(c, "error: unknown command")
+			}
+		}(conn)
+	}
+}
+
+// controlClient — подключение к запущенному экземпляру.
+func controlClient(path, command string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("программа не запущена (нет %s)", path)
+	}
+	fields := strings.Fields(string(data))
+	if len(fields) != 2 {
+		return "", fmt.Errorf("битый файл управления %s", path)
+	}
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:"+fields[0], 3*time.Second)
+	if err != nil {
+		return "", fmt.Errorf("не подключиться к работающей программе: %w", err)
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(20 * time.Second))
+	if _, err := fmt.Fprintf(conn, "%s %s\n", fields[1], command); err != nil {
+		return "", err
+	}
+	reply, err := readAll(conn)
+	return reply, err
+}
+
+func readAll(conn net.Conn) (string, error) {
+	var b strings.Builder
+	buf := make([]byte, 4096)
+	for {
+		n, err := conn.Read(buf)
+		b.Write(buf[:n])
+		if err != nil {
+			break
+		}
+	}
+	return b.String(), nil
 }

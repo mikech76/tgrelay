@@ -10,19 +10,28 @@ import (
 	"strings"
 )
 
+// UserPass — одна учётная запись SOCKS5.
+type UserPass struct {
+	User string
+	Pass string
+}
+
 // Config — содержимое tgrelay.txt.
 type Config struct {
 	Proxies   []*Proxy
 	MTPort    int // 0 = протокол выключен
 	SocksPort int
 	SocksHost string
-	Secret    []byte
+	Secrets   [][]byte // несколько SECRET= — для разных людей
 	External  string
 	Bypass    []*net.IPNet
-	User      string
-	Pass      string
+	Users     []UserPass
 	Hosts     []string // адреса Telegram для проверки живости
 	Lang      string
+
+	// первая учётная запись — для ссылок и совместимости
+	User string
+	Pass string
 }
 
 const (
@@ -54,7 +63,7 @@ func unquote(v string) string {
 	return v
 }
 
-// LoadConfig читает tgrelay.txt: KEY=value, повторы PROXY=, комментарии.
+// LoadConfig читает tgrelay.txt: KEY=value, повторы PROXY/SECRET/SOCKS_USER.
 func LoadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -64,6 +73,9 @@ func LoadConfig(path string) (*Config, error) {
 	values := map[string]string{}
 	seenOff := map[string]bool{}
 	var proxyLines []string
+	var secretLines []string
+	var userLines []string
+	var passLines []string
 
 	for _, raw := range strings.Split(string(data), "\n") {
 		line := strings.TrimSpace(strings.TrimSuffix(raw, "\r"))
@@ -71,11 +83,9 @@ func LoadConfig(path string) (*Config, error) {
 			continue
 		}
 		if strings.HasPrefix(line, "#") {
-			if i := strings.Index(line, "="); i > 0 {
-				key := strings.TrimSpace(strings.TrimPrefix(line, "#"))
-				if j := strings.Index(key, "="); j > 0 {
-					seenOff[strings.TrimSpace(key[:j])] = true
-				}
+			body := strings.TrimSpace(strings.TrimPrefix(line, "#"))
+			if j := strings.Index(body, "="); j > 0 {
+				seenOff[strings.TrimSpace(body[:j])] = true
 			}
 			continue
 		}
@@ -85,24 +95,34 @@ func LoadConfig(path string) (*Config, error) {
 		}
 		key := strings.TrimSpace(line[:i])
 		val := unquote(stripComment(line[i+1:]))
-		if key == "PROXY" {
+		switch key {
+		case "PROXY":
 			if val != "" {
 				proxyLines = append(proxyLines, val)
 			}
-			continue
+		case "SECRET":
+			if val != "" {
+				secretLines = append(secretLines, val)
+			}
+		case "SOCKS_USER":
+			userLines = append(userLines, val)
+		case "SOCKS_PASS":
+			passLines = append(passLines, val)
+		default:
+			values[key] = val
 		}
-		values[key] = val
 	}
 	if more := values["PROXIES"]; more != "" {
 		proxyLines = append([]string{more}, proxyLines...)
+	}
+	if more := values["SECRETS"]; more != "" {
+		secretLines = append(secretLines, strings.Split(more, ",")...)
 	}
 
 	cfg := &Config{
 		SocksHost: defaultString(values["SOCKS_HOST"], "127.0.0.1"),
 		External:  values["EXTERNAL_HOST"],
-		User:      values["SOCKS_USER"],
 		Lang:      strings.ToLower(values["LANG"]),
-		Pass:      values["SOCKS_PASS"],
 	}
 
 	for _, item := range strings.Split(strings.Join(proxyLines, ";"), ";") {
@@ -116,18 +136,44 @@ func LoadConfig(path string) (*Config, error) {
 		}
 	}
 
+	for _, item := range secretLines {
+		for _, part := range strings.Split(item, ",") {
+			clean := strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(part), " ", ""), "-", "")
+			if len(clean) != 32 {
+				fmt.Fprintf(os.Stderr, "SECRET пропущен (нужно 32 hex-символа): %s\n", part)
+				continue
+			}
+			raw, derr := hex.DecodeString(clean)
+			if derr != nil {
+				fmt.Fprintf(os.Stderr, "SECRET пропущен (не hex): %s\n", part)
+				continue
+			}
+			cfg.Secrets = append(cfg.Secrets, raw)
+		}
+	}
+	if len(cfg.Secrets) == 0 {
+		cfg.Secrets = [][]byte{make([]byte, 16)}
+		_, _ = rand.Read(cfg.Secrets[0])
+		fmt.Printf("SECRET пустой — сгенерирован временный: %s\n",
+			hex.EncodeToString(cfg.Secrets[0]))
+	}
+
 	cfg.MTPort = portValue(values, seenOff, "PROXY_PORT", defaultMTPort)
 	cfg.SocksPort = portValue(values, seenOff, "SOCKS_PORT", defaultSocksPort)
 
-	if hexSecret := strings.ReplaceAll(strings.ReplaceAll(values["SECRET"], " ", ""), "-", ""); len(hexSecret) == 32 {
-		if raw, derr := hex.DecodeString(hexSecret); derr == nil {
-			cfg.Secret = raw
+	for i, user := range userLines {
+		if strings.TrimSpace(user) == "" {
+			continue
 		}
+		pass := ""
+		if i < len(passLines) {
+			pass = passLines[i]
+		}
+		cfg.Users = append(cfg.Users, UserPass{User: user, Pass: pass})
 	}
-	if len(cfg.Secret) == 0 {
-		cfg.Secret = make([]byte, 16)
-		_, _ = rand.Read(cfg.Secret)
-		fmt.Printf("SECRET пустой — сгенерирован временный: %s\n", hex.EncodeToString(cfg.Secret))
+	if len(cfg.Users) > 0 {
+		cfg.User = cfg.Users[0].User
+		cfg.Pass = cfg.Users[0].Pass
 	}
 
 	for _, item := range strings.Split(values["AUTH_BYPASS"], ",") {

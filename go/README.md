@@ -145,6 +145,59 @@ plane and a dot in the corner. The dot colour is the current state:
 | red | no proxy is reachable |
 | grey | not running |
 
+## Command line
+
+The binary is both the server and its control tool. On a Linux server the
+server runs under systemd; the other commands talk to it through a local
+control socket (`tgrelay.ctl` next to the config, 127.0.0.1 only).
+
+```bash
+tgrelay                 # start (tray on Windows, foreground on Linux)
+tgrelay run             # same, explicit
+tgrelay status          # pid, mode, ports, uptime, connections, traffic, users
+tgrelay links           # Telegram links (mtproto / socks5, local and external)
+tgrelay reload          # re-read the config, restart proxies and ports in place
+tgrelay stop            # graceful stop
+tgrelay log -n 50       # last lines of tgrelay.log
+tgrelay log -f          # follow the log (like tail -f)
+tgrelay config          # path to the config
+tgrelay config edit     # open it in $EDITOR (nano/vi) or Notepad
+tgrelay check           # validate the config and test proxies / direct access
+tgrelay version
+```
+
+`--config путь` points to another config file, `--headless` starts the server
+without a tray (same as Linux).
+
+Under systemd the usual flow is:
+
+```bash
+sudo systemctl restart tgrelay     # full restart
+sudo tgrelay reload                # same, but without dropping the process
+sudo tgrelay status
+```
+
+## Several people, several keys
+
+Every `SECRET=` line is a separate MTProto key, every `SOCKS_USER`/`SOCKS_PASS`
+pair is a separate SOCKS5 account:
+
+```ini
+SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa   # for Alice
+SECRET=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb   # for Bob
+
+SOCKS_USER=alice
+SOCKS_PASS=alice-password
+SOCKS_USER=bob
+SOCKS_PASS=bob-password
+```
+
+- MTProto accepts any of the listed secrets, SOCKS5 accepts any listed pair.
+- To revoke access, delete the line and run **Reload config** (or
+  `tgrelay reload`): the running process keeps working, the removed key stops
+  working immediately.
+- `tgrelay status` shows traffic per key/user, so it is visible who uses what.
+
 ## Direct mode (no proxies)
 
 If there are no `PROXY=` lines at all, the program does not use any upstream

@@ -23,7 +23,7 @@ func StartServers(cfg *Config, pool *Pool, stats *Stats) (*Servers, error) {
 			return nil, fmt.Errorf("MTProto: %w", err)
 		}
 		s.listeners = append(s.listeners, listener)
-		mt := &MTProto{secret: cfg.Secret, pool: pool, hosts: cfg.Hosts, stats: stats}
+		mt := &MTProto{secrets: cfg.Secrets, pool: pool, hosts: cfg.Hosts, stats: stats}
 		go mt.Serve(listener)
 		logf("MTProto слушает 0.0.0.0:%d", cfg.MTPort)
 	}
@@ -36,7 +36,7 @@ func StartServers(cfg *Config, pool *Pool, stats *Stats) (*Servers, error) {
 			return nil, fmt.Errorf("SOCKS5: %w", err)
 		}
 		s.listeners = append(s.listeners, listener)
-		s5 := &Socks5{pool: pool, user: cfg.User, pass: cfg.Pass,
+		s5 := &Socks5{pool: pool, users: cfg.Users,
 			bypass: cfg.Bypass, stats: stats}
 		go s5.Serve(listener)
 		logf("SOCKS5 слушает %s", addr)

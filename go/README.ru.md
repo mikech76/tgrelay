@@ -145,6 +145,60 @@ Linux-сборка намеренно без трея: печатает ссыл
 | красная | ни один прокси не отвечает |
 | серая | не запущено |
 
+## Командная строка
+
+Один и тот же бинарник — и сервер, и средство управления. На Linux-сервере
+сервер живёт под systemd, остальные команды общаются с ним через локальный
+канал управления (`tgrelay.ctl` рядом с конфигом, только 127.0.0.1).
+
+```bash
+tgrelay                 # запуск (Windows — трей, Linux — передний план)
+tgrelay run             # то же самое, явно
+tgrelay status          # pid, режим, порты, uptime, соединения, трафик, пользователи
+tgrelay links           # ссылки для Telegram (mtproto / socks5, локальная и внешняя)
+tgrelay reload          # перечитать конфиг и перезапустить прокси и порты на месте
+tgrelay stop            # аккуратно остановить
+tgrelay log -n 50       # последние строки tgrelay.log
+tgrelay log -f          # следить за логом (как tail -f)
+tgrelay config          # путь к конфигу
+tgrelay config edit     # открыть в $EDITOR (nano/vi) или Блокноте
+tgrelay check           # проверить конфиг и доступность прокси / прямого выхода
+tgrelay version
+```
+
+`--config путь` — другой файл конфигурации, `--headless` — сервер без трея
+(то же, что на Linux).
+
+Под systemd обычный сценарий такой:
+
+```bash
+sudo systemctl restart tgrelay     # полный перезапуск
+sudo tgrelay reload                # то же, но без пересоздания процесса
+sudo tgrelay status
+```
+
+## Несколько человек, несколько ключей
+
+Каждая строка `SECRET=` — отдельный ключ MTProto, каждая пара
+`SOCKS_USER`/`SOCKS_PASS` — отдельная учётная запись SOCKS5:
+
+```ini
+SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa   # для Алисы
+SECRET=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb   # для Боба
+
+SOCKS_USER=alice
+SOCKS_PASS=alice-password
+SOCKS_USER=bob
+SOCKS_PASS=bob-password
+```
+
+- MTProto принимает любой из перечисленных секретов, SOCKS5 — любую пару.
+- Чтобы отозвать доступ, удалите строку и нажмите **Перечитать конфиг**
+  (или `tgrelay reload`): процесс продолжает работать, удалённый ключ
+  перестаёт пускать сразу.
+- `tgrelay status` показывает трафик по каждому ключу/логину — видно, кто
+  сколько расходует.
+
 ## Режим без прокси (direct)
 
 Если в конфиге нет ни одной строки `PROXY=`, программа не использует

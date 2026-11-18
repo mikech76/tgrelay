@@ -19,10 +19,7 @@ const (
 type tray struct {
 	hwnd   uintptr
 	nid    notifyIconData
-	cfg    *Config
-	path   string
-	pool   *Pool
-	stats  *Stats
+	app    *App
 	state  string
 	menu   uintptr
 	ids    map[uint32]func()
@@ -31,10 +28,9 @@ type tray struct {
 
 var activeTray *tray
 
-func newTray(cfg *Config, path string, pool *Pool, stats *Stats) *tray {
+func newTray(app *App) *tray {
 	t := &tray{
-		cfg: cfg, path: path, pool: pool, stats: stats,
-		state: "starting", ids: map[uint32]func(){}, nextID: 100,
+		app: app, state: "starting", ids: map[uint32]func(){}, nextID: 100,
 	}
 	t.init()
 	return t
@@ -108,7 +104,7 @@ func (t *tray) run() {
 }
 
 func (t *tray) updateIcon() {
-	state := t.stats.state(t.pool)
+	state := t.app.Stats.state(t.app.Pool)
 	if state == t.state {
 		return
 	}
@@ -179,12 +175,12 @@ func (t *tray) showMenu() {
 	menu, _, _ := pCreatePopupMenu.Call()
 	t.menu = menu
 
-	snap := t.stats.Snapshot()
-	alive, total := t.pool.Stats()
+	snap := t.app.Stats.Snapshot()
+	alive, total := t.app.Pool.Stats()
 
 	protocols := t.protocolLine()
 	t.addItem(menu, protocols, 0, "", false, false)
-	if t.pool.Direct() {
+	if t.app.Pool.Direct() {
 		t.addItem(menu, fmt.Sprintf(tr("direct_mode"), snap.Conns), 0, "", false, false)
 	} else {
 		t.addItem(menu, fmt.Sprintf(tr("proxies"), alive, total, snap.Conns), 0, "", false, false)
@@ -194,25 +190,25 @@ func (t *tray) showMenu() {
 	t.addSeparator(menu)
 
 	localHost := lanIP()
-	external := t.cfg.External
+	external := t.app.Cfg.External
 
-	if t.cfg.MTPort != 0 {
-		secret := hexSecret(t.cfg.Secret)
+	if t.app.Cfg.MTPort != 0 {
+		secret := hexSecret(firstSecret(t.app.Cfg))
 		link := func(host string) string {
-			return mtprotoLink(host, t.cfg.MTPort, secret)
+			return mtprotoLink(host, t.app.Cfg.MTPort, secret)
 		}
-		sub := t.addSubmenu(menu, "MTProto :"+strconv.Itoa(t.cfg.MTPort), "")
+		sub := t.addSubmenu(menu, "MTProto :"+strconv.Itoa(t.app.Cfg.MTPort), "")
 		t.addLinkItems(sub, localHost, external, link, "MTProto")
 	}
-	if t.cfg.SocksPort != 0 {
-		socksHost := t.cfg.SocksHost
+	if t.app.Cfg.SocksPort != 0 {
+		socksHost := t.app.Cfg.SocksHost
 		if socksHost == "" || socksHost == "0.0.0.0" {
 			socksHost = localHost
 		}
 		link := func(host string) string {
-			return socksLink(host, t.cfg.SocksPort, t.cfg.User, t.cfg.Pass)
+			return socksLink(host, t.app.Cfg.SocksPort, t.app.Cfg.User, t.app.Cfg.Pass)
 		}
-		sub := t.addSubmenu(menu, "SOCKS5 :"+strconv.Itoa(t.cfg.SocksPort), "")
+		sub := t.addSubmenu(menu, "SOCKS5 :"+strconv.Itoa(t.app.Cfg.SocksPort), "")
 		t.addLinkItems(sub, socksHost, external, link, "SOCKS5")
 	}
 
@@ -266,11 +262,11 @@ func (t *tray) addLinkItems(menu uintptr, localHost, external string,
 
 func (t *tray) protocolLine() string {
 	var parts []string
-	if t.cfg.MTPort != 0 {
-		parts = append(parts, "MTProto :"+strconv.Itoa(t.cfg.MTPort))
+	if t.app.Cfg.MTPort != 0 {
+		parts = append(parts, "MTProto :"+strconv.Itoa(t.app.Cfg.MTPort))
 	}
-	if t.cfg.SocksPort != 0 {
-		parts = append(parts, "SOCKS5 :"+strconv.Itoa(t.cfg.SocksPort))
+	if t.app.Cfg.SocksPort != 0 {
+		parts = append(parts, "SOCKS5 :"+strconv.Itoa(t.app.Cfg.SocksPort))
 	}
 	out := ""
 	for i, part := range parts {
@@ -301,7 +297,7 @@ func (t *tray) balloon(text string) {
 
 func (t *tray) setLang(code string) {
 	setLang(code)
-	writeConfigValue(t.path, "LANG", code)
+	writeConfigValue(t.app.Path, "LANG", code)
 	copyTip(&t.nid.szTip, tr("tray_tip"))
 	// меню перечитывается при следующем открытии
 }
@@ -319,7 +315,7 @@ func (t *tray) showAbout() {
 }
 
 func (t *tray) openSettings() {
-	go watchSettings(t.path)
+	go watchSettings(t.app.Path)
 }
 
 func (t *tray) toggleAutostart() {
@@ -337,7 +333,11 @@ func (t *tray) toggleAutostart() {
 
 func (t *tray) reloadConfig() {
 	t.balloon(tr("reloading"))
-	go restartSelf()
+	go func() {
+		if err := t.app.Reload(); err != nil {
+			messageBox("Reload: "+err.Error(), "tgrelay", 0x10)
+		}
+	}()
 }
 
 func (t *tray) exit() {

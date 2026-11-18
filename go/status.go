@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,6 +16,7 @@ type Stats struct {
 	connsTotal atomic.Uint64
 
 	mu        sync.Mutex
+	userStats map[string]*userCount
 	upRate    float64
 	downRate  float64
 	lastUp    uint64
@@ -23,8 +25,45 @@ type Stats struct {
 	startedAt time.Time
 }
 
+type userCount struct {
+	up   uint64
+	down uint64
+}
+
 func NewStats() *Stats {
-	return &Stats{startedAt: time.Now(), lastTime: time.Now()}
+	return &Stats{startedAt: time.Now(), lastTime: time.Now(),
+		userStats: map[string]*userCount{}}
+}
+
+// AddUser учитывает байты конкретного пользователя SOCKS5.
+func (s *Stats) AddUser(name string, up bool, n int) {
+	if name == "" || n <= 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	item, ok := s.userStats[name]
+	if !ok {
+		item = &userCount{}
+		s.userStats[name] = item
+	}
+	if up {
+		item.up += uint64(n)
+	} else {
+		item.down += uint64(n)
+	}
+}
+
+// UserLines — строки для status: трафик по каждому логину.
+func (s *Stats) UserLines() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, 0, len(s.userStats))
+	for name, item := range s.userStats {
+		out = append(out, fmt.Sprintf("%s: up %s, down %s",
+			name, human(float64(item.up)), human(float64(item.down))))
+	}
+	return out
 }
 
 func (s *Stats) Add(up, down int) {

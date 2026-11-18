@@ -144,6 +144,9 @@ SOCKS_HOST=0.0.0.0
 #      Generate it by hand:
 #          python -c "import secrets; print(secrets.token_hex(16))"
 #
+#      You can put several SECRET= lines: each is a separate key, hand them
+#      out to different people and remove the line to revoke it.
+#
 #      IMPORTANT: if you change the key, the proxy has to be added to
 #      Telegram again on every device.
 #
@@ -155,6 +158,9 @@ SOCKS_HOST=0.0.0.0
 #
 #      Сгенерировать вручную:
 #          python -c "import secrets; print(secrets.token_hex(16))"
+#
+#      Строк SECRET= может быть несколько: каждая — отдельный ключ. Раздайте
+#      их разным людям, а чтобы отозвать доступ — удалите строку.
 #
 #      ВАЖНО: если поменять ключ, в Telegram нужно заново добавить прокси
 #      на каждом устройстве.
@@ -206,12 +212,19 @@ AUTH_BYPASS=127.0.0.1/32,192.168.0.0/24
 #      the internet). If both are empty, authorization is off and every
 #      address is allowed.
 #
+#      Several SOCKS_USER lines make several accounts; each SOCKS_PASS belongs
+#      to the SOCKS_USER line above it. Remove a pair to revoke that account.
+#
 #      IMPORTANT: before forwarding the port outside, always set a password,
 #      otherwise your SOCKS5 becomes an open proxy for the whole internet.
 #
 #  RU  Логин и пароль для всех остальных (например, для подключения
 #      из интернета). Если оба пустые — авторизация выключена, и пускаются
 #      все адреса.
+#
+#      Несколько строк SOCKS_USER — несколько учётных записей; каждая
+#      SOCKS_PASS относится к строке SOCKS_USER над ней. Удалите пару, чтобы
+#      отозвать доступ.
 #
 #      ВАЖНО: перед пробросом порта наружу обязательно задайте пароль,
 #      иначе ваш SOCKS5 станет открытым прокси для всего интернета.
