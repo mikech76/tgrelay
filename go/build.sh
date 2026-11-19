@@ -2,9 +2,9 @@
 # Сборка Go-версии: Windows (трей) и Linux (headless).
 set -e
 cd "$(dirname "$0")"
-# Иконка exe лежит в rsrc_windows_amd64.syso (генерируется make_assets.py +
-#   go run github.com/akavel/rsrc@latest -ico assets/app.ico -arch amd64 #          -o rsrc_windows_amd64.syso
-# и уже закоммичена, поэтому при обычной сборке ничего делать не нужно).
+# Иконка exe лежит в rsrc_windows_amd64.syso (сгенерирована из assets/app.ico
+# через github.com/akavel/rsrc и уже закоммичена, при обычной сборке ничего
+# делать не нужно).
 mkdir -p dist
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath \
     -ldflags "-s -w -H=windowsgui" -o dist/tgrelay.exe .

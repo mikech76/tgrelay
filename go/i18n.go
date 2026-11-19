@@ -53,7 +53,7 @@ var texts = map[string]pair{
 	"about_title": {"About tgrelay", "О программе"},
 	"about_text": {"tgrelay %s\n\nMTProto + SOCKS5 relay over your own proxy pool.\n\n%s",
 		"tgrelay %s\n\nMTProto + SOCKS5 через ваш пул прокси.\n\n%s"},
-	"tray_tip":       {"tgrelay: MTProto + SOCKS5", "tgrelay: MTProto + SOCKS5"},
+	"tray_tip":       {"tgrelay %s: MTProto + SOCKS5", "tgrelay %s: MTProto + SOCKS5"},
 	"already_running": {"tgrelay is already running.", "tgrelay уже запущен."},
 	"already_title":   {"tgrelay", "tgrelay"},
 	"settings_saved":  {"Settings applied — restarting…", "Настройки применены — перезапуск…"},

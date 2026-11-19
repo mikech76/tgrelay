@@ -14,7 +14,7 @@ Telegram (SOCKS5) → 127.0.0.1:55056 → HTTP CONNECT + Basic auth → proxy pr
 | Folder | What it is |
 |---|---|
 | [`app/`](app/README.md) | Android app: one APK, local SOCKS5, no setup beyond a proxy list |
-| [`go/`](go/README.md) | Windows and Linux: MTProto **and** SOCKS5 at the same time, shared proxy pool, 4.7 MB binary |
+| [`go/`](go/README.md) | Windows and Linux: MTProto **and** SOCKS5 at the same time, shared proxy pool, 4.9 MB binary |
 
 ## Why this exists
 
@@ -44,7 +44,7 @@ Details: [app/README.md](app/README.md).
 
 ## Desktop (Windows / Linux)
 
-One Go binary, no runtime, no DLLs — 4.7 MB on Windows, 4.0 MB on Linux.
+One Go binary, no runtime, no DLLs — 4.9 MB on Windows, 4.2 MB on Linux.
 
 Ready-made builds from **Releases**:
 
@@ -82,16 +82,19 @@ PROXY_PORT=55055                     # MTProto
 SOCKS_PORT=55056                     # SOCKS5
 SOCKS_HOST=0.0.0.0                   # 127.0.0.1 = this PC only
 
-# 3. MTProto SECRET
-SECRET=                              # empty = generated on first run
+# 3. MTProto SECRETS (one per person)
+SECRET=                              # empty = generated and saved on first run
+# SECRET=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb   # second key
 
 # 4. EXTERNAL NAME (only if you forwarded the port)
 EXTERNAL_HOST=                       # e.g. yourname.duckdns.org
 
 # 5. SOCKS5 ACCESS
 AUTH_BYPASS=127.0.0.1/32,192.168.0.0/24
-SOCKS_USER=
+SOCKS_USER=                          # first account
 SOCKS_PASS=
+# SOCKS_USER=bob                     # second account
+# SOCKS_PASS=bob-password
 ```
 
 - Anything after ` #` is a comment.
@@ -99,10 +102,13 @@ SOCKS_PASS=
 - Comment out one proxy to disable it temporarily.
 - Comment out a port line (or set it to `off`) to disable that protocol:
   MTProto and SOCKS5 then do not start and their tray items disappear.
-- Leave `SECRET` empty: on first launch the program offers to generate a key
-  and writes it into `tgrelay.txt` for you.
-- Upgrading from an older build? The config used to be named `.env`; it is
-  picked up and renamed to `tgrelay.txt` automatically on the first run.
+- Leave `SECRET` empty: on first launch a key is generated and written into
+  `tgrelay.txt` for you.
+- No `PROXY=` lines at all = direct mode (a VPS abroad connects to Telegram itself).
+- Several `SECRET=` lines = several MTProto keys, several
+  `SOCKS_USER`/`SOCKS_PASS` pairs = several SOCKS5 accounts: hand them out
+  one per person, delete a line + reload to revoke. `tgrelay links` prints a
+  link for every key and account. Details: [go/README.md](go/README.md#several-people-several-keys).
 
 ## Where to buy proxies
 

@@ -9,7 +9,6 @@ build/
 
 # локальный конфиг и списки прокси (не публиковать!)
 go/tgrelay.txt
-go/.env
 tgrelay.txt
 app/assets/default_proxies.txt
 
@@ -22,11 +21,6 @@ local.properties
 # прочее
 *.log
 .DS_Store
-
-# python
-__pycache__/
-*.pyc
-*.pyo
 
 # сборка Go
 go/dist/

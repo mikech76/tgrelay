@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -31,6 +32,11 @@ var (
 
 // autostartValue возвращает путь, прописанный в HKCU\...\Run (если есть).
 func autostartValue() (string, bool) {
+	return readRunValue(runValue)
+}
+
+// readRunValue читает значение из HKCU\...\Run по имени.
+func readRunValue(name string) (string, bool) {
 	var key syscall.Handle
 	r, _, _ := pRegOpenKeyExW.Call(hkeyCurrentUser,
 		uintptr(unsafe.Pointer(utf16Ptr(runSubKey))), 0, keyQueryValue,
@@ -44,7 +50,7 @@ func autostartValue() (string, bool) {
 	size := uint32(len(buf) * 2)
 	var kind uint32
 	r, _, _ = pRegQueryValueExW.Call(uintptr(key),
-		uintptr(unsafe.Pointer(utf16Ptr(runValue))), 0,
+		uintptr(unsafe.Pointer(utf16Ptr(name))), 0,
 		uintptr(unsafe.Pointer(&kind)),
 		uintptr(unsafe.Pointer(&buf[0])),
 		uintptr(unsafe.Pointer(&size)))
@@ -52,6 +58,28 @@ func autostartValue() (string, bool) {
 		return "", false
 	}
 	return syscall.UTF16ToString(buf), true
+}
+
+// deleteRunValue удаляет значение из HKCU\...\Run (если его нет — не ошибка).
+func deleteRunValue(name string) {
+	var key syscall.Handle
+	r, _, _ := pRegOpenKeyExW.Call(hkeyCurrentUser,
+		uintptr(unsafe.Pointer(utf16Ptr(runSubKey))), 0, keySetValue,
+		uintptr(unsafe.Pointer(&key)))
+	if r != 0 {
+		return
+	}
+	defer pRegCloseKey.Call(uintptr(key))
+	pRegDeleteValueW.Call(uintptr(key), uintptr(unsafe.Pointer(utf16Ptr(name))))
+}
+
+// cleanupLegacyAutostart убирает запись от старой версии программы, если она
+// ведёт на тот же tgrelay: иначе при входе в систему запускались два экземпляра.
+func cleanupLegacyAutostart() {
+	if value, ok := readRunValue("MTProxy"); ok &&
+		strings.Contains(strings.ToLower(value), "tgrelay") {
+		deleteRunValue("MTProxy")
+	}
 }
 
 func autostartEnabled() bool {
@@ -90,14 +118,5 @@ func enableAutostart() error {
 
 // disableAutostart убирает значение (если его нет — не ошибка).
 func disableAutostart() {
-	var key syscall.Handle
-	r, _, _ := pRegOpenKeyExW.Call(hkeyCurrentUser,
-		uintptr(unsafe.Pointer(utf16Ptr(runSubKey))), 0, keySetValue,
-		uintptr(unsafe.Pointer(&key)))
-	if r != 0 {
-		return
-	}
-	defer pRegCloseKey.Call(uintptr(key))
-	pRegDeleteValueW.Call(uintptr(key),
-		uintptr(unsafe.Pointer(utf16Ptr(runValue))))
+	deleteRunValue(runValue)
 }

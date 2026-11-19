@@ -28,16 +28,24 @@ type tray struct {
 
 var activeTray *tray
 
+// taskbarCreated — сообщение Windows «панель задач перезапустилась»:
+// после перезапуска Explorer иконку нужно добавить заново.
+var taskbarCreated uintptr
+
 func newTray(app *App) *tray {
 	t := &tray{
 		app: app, state: "starting", ids: map[uint32]func(){}, nextID: 100,
 	}
 	t.init()
+	quitUI = t.requestClose
 	return t
 }
 
 func (t *tray) init() {
 	hInst, _, _ := pGetModuleHandleW.Call(0)
+	if r, _, _ := pRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(utf16Ptr("TaskbarCreated")))); r != 0 {
+		taskbarCreated = r
+	}
 	className := utf16Ptr(fmt.Sprintf("tgrelayTray%d", time.Now().UnixNano()))
 
 	cursor, _, _ := pLoadCursorW.Call(0, 32512) // IDC_ARROW
@@ -62,25 +70,32 @@ func (t *tray) init() {
 		uCallbackMessage: wmApp + 1,
 		hIcon:            trayIcon("starting"),
 	}
-	copyTip(&t.nid.szTip, tr("tray_tip"))
+	copyTip(&t.nid.szTip, tr("tray_tip", version))
 	pShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&t.nid)))
 
 	pSetTimer.Call(hwnd, 1, 1000, 0)
 }
 
 func (t *tray) wndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
+	// Колбэк — на потоке окна; меню и иконку трогаем из цикла сообщений
+	// (см. run), здесь только быстрые действия.
+	if taskbarCreated != 0 && msg == taskbarCreated {
+		t.reAdd()
+		return 0
+	}
 	switch msg {
 	case wmApp + 1:
-		logf("трей: сообщение %d", lparam)
+		// Клик по иконке приходит «отправленным» сообщением и минует очередь
+		// GetMessage, поэтому передаём метку в цикл сообщений: там меню
+		// открывается на потоке, к которому привязано окно.
 		switch uint32(lparam) {
-		case wmRButtonUp, wmContext:
-			t.showMenu()
-		case wmLButtonUp:
-			t.showMenu()
+		case wmRButtonUp, wmContext, wmLButtonUp:
+			pPostMessageW.Call(hwnd, wmApp+2, 0, 0)
 		}
 		return 0
-	case wmTimer:
-		t.updateIcon()
+	case wmClose:
+		t.removeIcon()
+		pDestroyWindow.Call(hwnd)
 		return 0
 	case wmDestroy:
 		pPostQuitMessage.Call(0)
@@ -91,6 +106,10 @@ func (t *tray) wndProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 }
 
 func (t *tray) run() {
+	// Вызывается из runUI, где горутина уже привязана к потоку ОС
+	// (runtime.LockOSThread): окно и цикл сообщений Win32 обязаны жить на
+	// одном потоке. Иначе Go-планировщик переносит горутину на другой
+	// поток — и клики по иконке перестают доходить, хотя сервер работает.
 	activeTray = t
 	var msg msgStruct
 	for {
@@ -98,9 +117,47 @@ func (t *tray) run() {
 		if int32(r) <= 0 {
 			break
 		}
+		if msg.hwnd == t.hwnd {
+			switch msg.message {
+			case wmApp + 1:
+				switch uint32(msg.lParam) {
+				case wmRButtonUp, wmContext, wmLButtonUp:
+					t.showMenu()
+				}
+				continue
+			case wmApp + 2: // метка от оконной процедуры: открыть меню
+				t.showMenu()
+				continue
+			case wmTimer:
+				t.updateIcon()
+				continue
+			}
+		}
 		pTranslateMessage.Call(uintptr(unsafe.Pointer(&msg)))
 		pDispatchMessageW.Call(uintptr(unsafe.Pointer(&msg)))
 	}
+}
+
+// removeIcon убирает иконку из трея.
+func (t *tray) removeIcon() {
+	pShellNotifyIconW.Call(nimDelete, uintptr(unsafe.Pointer(&t.nid)))
+}
+
+// reAdd возвращает иконку после перезапуска Explorer.
+func (t *tray) reAdd() {
+	if t.hwnd == 0 {
+		return
+	}
+	t.nid.uFlags = nifMessage | nifIcon | nifTip
+	t.nid.hIcon = trayIcon(t.state)
+	copyTip(&t.nid.szTip, tr("tray_tip", version))
+	pShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&t.nid)))
+}
+
+// requestClose просит окно закрыться (используется командой tgrelay stop).
+func (t *tray) requestClose() bool {
+	r, _, _ := pPostMessageW.Call(t.hwnd, wmClose, 0, 0)
+	return r != 0
 }
 
 func (t *tray) updateIcon() {
@@ -179,6 +236,7 @@ func (t *tray) showMenu() {
 	alive, total := t.app.Pool.Stats()
 
 	protocols := t.protocolLine()
+	t.addItem(menu, "tgrelay "+version, 0, "", false, false)
 	t.addItem(menu, protocols, 0, "", false, false)
 	if t.app.Pool.Direct() {
 		t.addItem(menu, fmt.Sprintf(tr("direct_mode"), snap.Conns), 0, "", false, false)
@@ -230,7 +288,9 @@ func (t *tray) showMenu() {
 	t.addSeparator(menu)
 	t.addItem(menu, tr("exit"), t.id(t.exit), "menu_exit", true, false)
 
-	pSetForegroundWindow.Call(t.hwnd)
+	// SetForegroundWindow на скрытом окне не срабатывает: меню получается
+	// без «хозяина» и может зависнуть невидимым. Popup сам захватывает мышь,
+	// поэтому клик мимо него меню и так закрывает.
 	var pt point
 	pGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
 	cmd, _, _ := pTrackPopupMenuEx.Call(menu,
@@ -289,7 +349,7 @@ func (t *tray) balloon(text string) {
 	t.nid.uFlags = 0x00000010 // NIF_INFO
 	t.nid.dwInfoFlags = 0x00000001
 	t.nid.uVersion = 0
-	copyTip(&t.nid.szTip, tr("tray_tip"))
+	copyTip(&t.nid.szTip, tr("tray_tip", version))
 	copyInfo(t.nid.szInfo[:], text)
 	copyInfo(t.nid.szInfoTitle[:], "tgrelay")
 	pShellNotifyIconW.Call(nimModify, uintptr(unsafe.Pointer(&t.nid)))
@@ -298,7 +358,7 @@ func (t *tray) balloon(text string) {
 func (t *tray) setLang(code string) {
 	setLang(code)
 	writeConfigValue(t.app.Path, "LANG", code)
-	copyTip(&t.nid.szTip, tr("tray_tip"))
+	copyTip(&t.nid.szTip, tr("tray_tip", version))
 	// меню перечитывается при следующем открытии
 }
 
@@ -341,9 +401,8 @@ func (t *tray) reloadConfig() {
 }
 
 func (t *tray) exit() {
-	pShellNotifyIconW.Call(nimDelete, uintptr(unsafe.Pointer(&t.nid)))
+	t.removeIcon()
 	pDestroyWindow.Call(t.hwnd)
-	os.Exit(0)
 }
 
 func copyInfo(dst []uint16, text string) {

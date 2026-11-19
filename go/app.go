@@ -36,10 +36,31 @@ func NewApp(path string) (*App, error) {
 	if err := validate(cfg); err != nil {
 		return nil, err
 	}
+	applyLang(cfg)
 	app := &App{Cfg: cfg, Path: path, started: time.Now()}
 	app.Stats = NewStats()
 	app.Pool = NewPool(cfg.Proxies, cfg.Hosts)
+	if cfg.SecretMissing {
+		persistSecret(path, cfg)
+	}
 	return app, nil
+}
+
+// persistSecret записывает сгенерированный ключ в конфиг, чтобы ссылки не
+// менялись при следующем запуске.
+func persistSecret(path string, cfg *Config) {
+	key := hexSecret(firstSecret(cfg))
+	writeConfigValue(path, "SECRET", key)
+	logf("SECRET сгенерирован и записан в конфиг: %s", key)
+}
+
+// applyLang включает язык из конфига (пусто = язык системы).
+func applyLang(cfg *Config) {
+	code := strings.ToLower(strings.TrimSpace(cfg.Lang))
+	if code != "ru" && code != "en" {
+		code = systemLang()
+	}
+	setLang(code)
 }
 
 func validate(cfg *Config) error {
@@ -75,6 +96,10 @@ func (a *App) Reload() error {
 	}
 	if err := validate(cfg); err != nil {
 		return err
+	}
+	applyLang(cfg)
+	if cfg.SecretMissing {
+		persistSecret(a.Path, cfg)
 	}
 
 	a.mu.Lock()
@@ -148,16 +173,24 @@ func (a *App) Status() string {
 	return b.String()
 }
 
-// Links возвращает ссылки для Telegram.
+// Links возвращает ссылки для Telegram: по одной на каждый ключ MTProto и на
+// каждую учётную запись SOCKS5.
 func (a *App) Links() string {
 	local := lanIP()
 	var out strings.Builder
 	if a.Cfg.MTPort != 0 {
-		secret := hexSecret(firstSecret(a.Cfg))
-		fmt.Fprintf(&out, "mtproto: %s\n", mtprotoLink(local, a.Cfg.MTPort, secret))
-		if a.Cfg.External != "" {
-			fmt.Fprintf(&out, "mtproto-external: %s\n",
-				mtprotoLink(a.Cfg.External, a.Cfg.MTPort, secret))
+		multi := len(a.Cfg.Secrets) > 1
+		for i, secret := range a.Cfg.Secrets {
+			name := "mtproto"
+			if multi {
+				name = fmt.Sprintf("mtproto #%d", i+1)
+			}
+			key := hexSecret(secret)
+			fmt.Fprintf(&out, "%s: %s\n", name, mtprotoLink(local, a.Cfg.MTPort, key))
+			if a.Cfg.External != "" {
+				fmt.Fprintf(&out, "%s-external: %s\n", name,
+					mtprotoLink(a.Cfg.External, a.Cfg.MTPort, key))
+			}
 		}
 	}
 	if a.Cfg.SocksPort != 0 {
@@ -165,10 +198,22 @@ func (a *App) Links() string {
 		if host == "" || host == "0.0.0.0" {
 			host = local
 		}
-		fmt.Fprintf(&out, "socks5: %s\n", socksLink(host, a.Cfg.SocksPort, a.Cfg.User, a.Cfg.Pass))
-		if a.Cfg.External != "" {
-			fmt.Fprintf(&out, "socks5-external: %s\n",
-				socksLink(a.Cfg.External, a.Cfg.SocksPort, a.Cfg.User, a.Cfg.Pass))
+		users := a.Cfg.Users
+		if len(users) == 0 {
+			users = []UserPass{{}}
+		}
+		multi := len(users) > 1
+		for i, account := range users {
+			name := "socks5"
+			if multi {
+				name = fmt.Sprintf("socks5 #%d (%s)", i+1, account.User)
+			}
+			fmt.Fprintf(&out, "%s: %s\n", name,
+				socksLink(host, a.Cfg.SocksPort, account.User, account.Pass))
+			if a.Cfg.External != "" {
+				fmt.Fprintf(&out, "%s-external: %s\n", name,
+					socksLink(a.Cfg.External, a.Cfg.SocksPort, account.User, account.Pass))
+			}
 		}
 	}
 	return out.String()
@@ -191,6 +236,10 @@ func formatDuration(d time.Duration) string {
 // --- канал управления ------------------------------------------------------
 
 const ctlName = "tgrelay.ctl"
+
+// quitUI — просьба к интерфейсу завершиться (tgrelay stop): закрыть трей,
+// чтобы иконка исчезла и ресурсы освободились штатно. nil — интерфейса нет.
+var quitUI func() bool
 
 func (a *App) startControl() {
 	path := filepath.Join(filepath.Dir(a.Path), ctlName)
@@ -245,6 +294,9 @@ func (a *App) serveControl(listener net.Listener, token string) {
 				fmt.Fprintln(c, "stopping")
 				go func() {
 					time.Sleep(200 * time.Millisecond)
+					if quitUI != nil && quitUI() {
+						return // трей закроется сам и снимет иконку
+					}
 					a.Stop()
 					os.Exit(0)
 				}()

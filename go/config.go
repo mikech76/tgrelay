@@ -29,6 +29,9 @@ type Config struct {
 	Hosts     []string // адреса Telegram для проверки живости
 	Lang      string
 
+	// SECRET не был задан: сгенерирован новый, его нужно записать в конфиг
+	SecretMissing bool
+
 	// первая учётная запись — для ссылок и совместимости
 	User string
 	Pass string
@@ -154,8 +157,7 @@ func LoadConfig(path string) (*Config, error) {
 	if len(cfg.Secrets) == 0 {
 		cfg.Secrets = [][]byte{make([]byte, 16)}
 		_, _ = rand.Read(cfg.Secrets[0])
-		fmt.Printf("SECRET пустой — сгенерирован временный: %s\n",
-			hex.EncodeToString(cfg.Secrets[0]))
+		cfg.SecretMissing = true
 	}
 
 	cfg.MTPort = portValue(values, seenOff, "PROXY_PORT", defaultMTPort)

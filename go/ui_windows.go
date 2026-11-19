@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -17,6 +18,13 @@ func runUI(app *App, headless bool) {
 		printLinks(app)
 		select {}
 	}
+	// Всё, что связано с окном и меню, должно жить на одном потоке ОС:
+	// создание окна, цикл сообщений и показ меню. Иначе Go-планировщик
+	// разносит их по разным потокам, и клики по иконке теряются.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	cleanupLegacyAutostart()
 	t := newTray(app)
 	logf("трей: окно создано")
 	printLinks(app)
@@ -26,27 +34,7 @@ func runUI(app *App, headless bool) {
 }
 
 func printLinks(app *App) {
-	cfg := app.Cfg
-	local := lanIP()
-	if cfg.MTPort != 0 {
-		secret := hexSecret(firstSecret(cfg))
-		fmt.Println("MTProto link:", mtprotoLink(local, cfg.MTPort, secret))
-		if cfg.External != "" {
-			fmt.Println("MTProto link (external):",
-				mtprotoLink(cfg.External, cfg.MTPort, secret))
-		}
-	}
-	if cfg.SocksPort != 0 {
-		host := cfg.SocksHost
-		if host == "" || host == "0.0.0.0" {
-			host = local
-		}
-		fmt.Println("SOCKS5 link:", socksLink(host, cfg.SocksPort, cfg.User, cfg.Pass))
-		if cfg.External != "" {
-			fmt.Println("SOCKS5 link (external):",
-				socksLink(cfg.External, cfg.SocksPort, cfg.User, cfg.Pass))
-		}
-	}
+	fmt.Print(app.Links())
 	fmt.Println()
 }
 

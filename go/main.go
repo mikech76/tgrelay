@@ -60,6 +60,7 @@ func runServer(configPath string, headless bool) {
 	defer app.Stop()
 
 	logf("конфиг: %s", path)
+	logf("tgrelay %s — MTProto + SOCKS5", version)
 	logf("прокси: %d", len(app.Cfg.Proxies))
 	for _, pr := range app.Pool.proxies {
 		logf("  %s (%s)", pr.Addr(), kindOrAuto(pr.Kind()))

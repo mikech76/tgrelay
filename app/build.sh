@@ -51,11 +51,7 @@ cp build/base.apk build/app.apk
 if command -v zip >/dev/null 2>&1; then
   (cd build/dex && zip -q ../app.apk classes.dex)
 else
-  python3 - <<'PY'
-import zipfile
-with zipfile.ZipFile('build/app.apk', 'a', zipfile.ZIP_DEFLATED) as z:
-    z.write('build/dex/classes.dex', 'classes.dex')
-PY
+  (cd build/dex && jar uf ../app.apk classes.dex)
 fi
 
 echo "== zipalign =="

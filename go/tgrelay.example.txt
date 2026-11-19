@@ -138,11 +138,10 @@ SOCKS_HOST=0.0.0.0
 #  EN  The key Telegram uses to encrypt the connection to the MTProto proxy.
 #      Exactly 32 characters, 0-9 and a-f (16 bytes).
 #
-#      If left empty, the program offers to generate a key on the first run
-#      and writes it here.
+#      If left empty, a key is generated on the first run and written here.
 #
 #      Generate it by hand:
-#          python -c "import secrets; print(secrets.token_hex(16))"
+#          openssl rand -hex 16
 #
 #      You can put several SECRET= lines: each is a separate key, hand them
 #      out to different people and remove the line to revoke it.
@@ -153,11 +152,11 @@ SOCKS_HOST=0.0.0.0
 #  RU  Ключ, которым Telegram шифрует соединение с MTProto-прокси.
 #      Ровно 32 символа из 0-9 и a-f (16 байт).
 #
-#      Если оставить пустым, программа при первом запуске предложит
-#      сгенерировать ключ и сама запишет его сюда.
+#      Если оставить пустым, ключ сгенерируется при первом запуске и сам
+#      запишется сюда.
 #
 #      Сгенерировать вручную:
-#          python -c "import secrets; print(secrets.token_hex(16))"
+#          openssl rand -hex 16
 #
 #      Строк SECRET= может быть несколько: каждая — отдельный ключ. Раздайте
 #      их разным людям, а чтобы отозвать доступ — удалите строку.

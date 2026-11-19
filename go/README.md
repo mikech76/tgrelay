@@ -1,7 +1,11 @@
 # tgrelay for desktop (Windows / Linux)
 
-A small Go program (4.7 MB, ~17 MB RAM): the same idea as the Android app, but for a computer: one process starts
-**two proxies at once**, both using your pool of upstream proxies (HTTP CONNECT or SOCKS).
+A small Go program (4.9 MB, ~17 MB RAM): the same idea as the Android app, but for a computer: one process starts
+**two proxies at once** — MTProto and SOCKS5.
+
+By default both work through your pool of upstream proxies (HTTP CONNECT or
+SOCKS). Without `PROXY=` lines they work directly: the program connects to the
+internet itself (see [Direct mode](#direct-mode-no-proxies)).
 
 | Type | Default port | Used by |
 |---|---|---|
@@ -9,9 +13,11 @@ A small Go program (4.7 MB, ~17 MB RAM): the same idea as the Android app, but f
 | **SOCKS5** | 55056 | Telegram — proxy type "SOCKS5" (no secret, optional login/password) |
 
 ```
-Telegram --> [MTProto 55055] \
-                              --> HTTP CONNECT pool --> Telegram DC
-Telegram --> [SOCKS5 55056]  /
+Telegram --> [MTProto 55055] --\
+                               +--> pool of upstream proxies --> Telegram DC
+Telegram --> [SOCKS5 55056] --/
+
+no PROXY= lines: MTProto 55055 and SOCKS5 55056 --> internet directly
 ```
 
 The MTProto part decrypts the handshake (the protocol requires it: the client
@@ -29,8 +35,8 @@ address and port.
 2. Put it into any empty folder (it writes `tgrelay.txt` and the log next to itself)
    and run it.
 3. On the first run it creates `tgrelay.txt` and opens it in Notepad. Fill in:
-   - `PROXY=` lines — your HTTP proxies, one per line;
-   - leave `SECRET` empty — it is generated automatically.
+   - `PROXY=` lines — your HTTP proxies, one per line (none at all = direct mode);
+   - leave `SECRET` empty — a key is generated and written into the file.
 4. Save and run `tgrelay.exe` again.
 
 A tray icon appears. Right click it:
@@ -45,6 +51,8 @@ and total traffic since the start.
   - **Copy link — <address>** and **Show QR code — <address>** for the local
     address (the computer's address in your network);
   - the same pair for `EXTERNAL_HOST`, shown only if it is set in the config;
+  - the tray uses the first key/account; `tgrelay links` prints a link for
+    every key and every SOCKS5 account;
 - **Settings** — a submenu:
   - **Edit config file** — opens `tgrelay.txt` in Notepad; save the file and
     close Notepad, and the program restarts itself with the new settings;
@@ -86,10 +94,10 @@ The exe is self-contained: no runtime to install, no DLLs to copy.
 ### Option A — ready-made binary (nothing to install)
 
 ```bash
-chmod +x tgrelay-linux-x86_64
-./tgrelay-linux-x86_64      # creates tgrelay.txt next to itself and prints what to do
-nano tgrelay.txt                   # PROXY= + SECRET (or leave it empty)
-./tgrelay-linux-x86_64      # run again
+chmod +x tgrelay-linux
+./tgrelay-linux            # creates tgrelay.txt next to itself and prints what to do
+nano tgrelay.txt           # PROXY= + SECRET (or no PROXY= at all for direct mode)
+./tgrelay-linux            # run again
 ```
 
 Works on Debian 10+, Ubuntu 18.04+, CentOS 8+, Fedora 28+ (x86_64).
@@ -106,7 +114,7 @@ Wants=network-online.target
 Type=simple
 User=YOURUSER
 WorkingDirectory=/opt/tgrelay
-ExecStart=/opt/tgrelay/tgrelay-linux-x86_64
+ExecStart=/opt/tgrelay/tgrelay
 Restart=always
 RestartSec=3
 
@@ -155,7 +163,7 @@ control socket (`tgrelay.ctl` next to the config, 127.0.0.1 only).
 tgrelay                 # start (tray on Windows, foreground on Linux)
 tgrelay run             # same, explicit
 tgrelay status          # pid, mode, ports, uptime, connections, traffic, users
-tgrelay links           # Telegram links (mtproto / socks5, local and external)
+tgrelay links           # a Telegram link for every MTProto key and SOCKS5 account
 tgrelay reload          # re-read the config, restart proxies and ports in place
 tgrelay stop            # graceful stop
 tgrelay log -n 50       # last lines of tgrelay.log
@@ -166,8 +174,8 @@ tgrelay check           # validate the config and test proxies / direct access
 tgrelay version
 ```
 
-`--config путь` points to another config file, `--headless` starts the server
-without a tray (same as Linux).
+`--config path` points to another config file, `--headless` (`-headless`)
+starts the server without a tray (same as Linux).
 
 Under systemd the usual flow is:
 
@@ -193,10 +201,25 @@ SOCKS_PASS=bob-password
 ```
 
 - MTProto accepts any of the listed secrets, SOCKS5 accepts any listed pair.
+  The `i`-th key is shown in `status` as `mtproto#i`, the SOCKS5 accounts are
+  shown under their logins.
+- `tgrelay links` prints a ready link for **every** key and account; the tray
+  shows only the first key/account, so use the command line when you hand out
+  several.
 - To revoke access, delete the line and run **Reload config** (or
   `tgrelay reload`): the running process keeps working, the removed key stops
   working immediately.
 - `tgrelay status` shows traffic per key/user, so it is visible who uses what.
+
+A key is 32 hex characters (16 bytes). To make one yourself:
+
+```bash
+openssl rand -hex 16          # Linux, macOS
+```
+
+```powershell
+-join ((1..16) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+```
 
 ## Direct mode (no proxies)
 
@@ -226,7 +249,7 @@ Every block in the file is commented in both languages, English first and
 Russian after it, the same order as in this documentation.
 
 ```ini
-# 1. PROXIES (one per line)
+# 1. PROXIES (one per line; no PROXY= lines at all = direct mode)
 PROXY=user:password@1.2.3.4:9405     # primary
 PROXY=user:password@5.6.7.8:9829     # backup
 # PROXY=9.9.9.9:8080                 # disabled
@@ -236,29 +259,32 @@ PROXY_PORT=55055                     # MTProto
 SOCKS_PORT=55056                     # SOCKS5
 SOCKS_HOST=0.0.0.0                   # 127.0.0.1 = this PC only
 
-# 3. MTProto SECRET
-SECRET=                              # empty = generated on first run
+# 3. MTProto SECRETS (one per person; each SECRET= is a separate key)
+SECRET=                              # empty = generated and saved on first run
+# SECRET=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb   # second key, for Bob
 
 # 4. EXTERNAL NAME (only if you forwarded the port)
 EXTERNAL_HOST=                       # e.g. yourname.duckdns.org
 
 # 5. SOCKS5 ACCESS
 AUTH_BYPASS=127.0.0.1/32,192.168.0.0/24
-SOCKS_USER=
+SOCKS_USER=                          # first account
 SOCKS_PASS=
+# SOCKS_USER=bob                     # second account
+# SOCKS_PASS=bob-password
 ```
 
 | Key | Meaning |
 |---|---|
-| `PROXY` | one proxy per line: `login:password@host:port`, or with a scheme — `http://`, `https://`, `socks5://`, `socks://` (5 by default), `socks4://`; without a scheme the type is detected automatically |
+| `PROXY` | one proxy per line: `login:password@host:port`, or with a scheme — `http://`, `https://`, `socks5://`, `socks://` (5 by default), `socks4://`; without a scheme the type is detected automatically. No `PROXY=` lines at all = direct mode |
 | `PROXY_PORT` | MTProto port (default 55055); comment the line out, set `off` or leave it empty to disable MTProto |
 | `SOCKS_PORT` | SOCKS5 port (default 55056); same — disables SOCKS5 entirely |
 | `SOCKS_HOST` | SOCKS5 listen address |
-| `SECRET` | MTProto secret; if empty, it is generated and written here |
+| `SECRET` | MTProto secret, 32 hex characters; **repeat the line** for several keys. If empty, a key is generated and written here |
 | `LANG` | interface language: `en` or `ru`; empty = system language |
 | `EXTERNAL_HOST` | DDNS name or external IP used in links |
 | `AUTH_BYPASS` | networks allowed to use SOCKS5 without a password |
-| `SOCKS_USER` / `SOCKS_PASS` | login/password for everyone else |
+| `SOCKS_USER` / `SOCKS_PASS` | login/password for everyone else; **repeat the pair** for several accounts |
 
 The old one-line format is still supported:
 `PROXIES=user:pass@1.2.3.4:9405;5.6.7.8:8080`.
@@ -266,9 +292,6 @@ The old one-line format is still supported:
 A protocol with a disabled port does not start at all, and its tray items
 (copy link, QR) disappear from the menu. If both are disabled, the program
 says there is nothing to start.
-
-An old config from previous versions (the file used to be named `.env`) is
-picked up and renamed automatically on the first run.
 
 ### Interface language
 
@@ -304,19 +327,16 @@ before it when disabling a single entry inside a list.
 The secret is 32 hex characters (16 bytes). It is not a password but key
 material: anyone who knows it can use your proxy.
 
-If `SECRET` is empty, on the first launch the program asks (the wording
-follows `LANG` / the system language):
+If `SECRET` is empty on the first launch, a key is generated, written into
+`tgrelay.txt` and printed to the log:
 
 ```
-SECRET is not set in tgrelay.txt for the MTProto proxy.
-Generate a new key? [Y/n]:
+SECRET сгенерирован и записан в конфиг: 9d4e215aeba83fe52b0764a4d1e5bdd3
 ```
 
-Answer `Y` (or press Enter) and the key is generated and written into `tgrelay.txt`.
-If you answer `n`, the program stops so you can set your own value.
-
-Under a GUI/service (no console) the key is generated automatically and written
-to `tgrelay.txt`.
+From then on the key is stable: restarts and **Reload config** keep it, so the
+Telegram link does not change. To give access to somebody else, add another
+`SECRET=` line (see [Several people, several keys](#several-people-several-keys)).
 
 ## Connecting Telegram
 
@@ -326,6 +346,9 @@ to `tgrelay.txt`.
 - SOCKS5: `tg://socks?server=127.0.0.1&port=55056` (if `SOCKS_USER` is empty)
 
 The tray always builds links with the correct address and secret.
+
+With several `SECRET=` lines each person gets their own link: run
+`tgrelay links` and hand out `mtproto #1`, `mtproto #2` and so on.
 
 **Phone in the same Wi-Fi:**
 

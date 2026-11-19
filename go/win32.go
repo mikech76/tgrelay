@@ -29,6 +29,7 @@ var (
 	pDestroyMenu         = user32.NewProc("DestroyMenu")
 	pTrackPopupMenuEx    = user32.NewProc("TrackPopupMenuEx")
 	pSetForegroundWindow = user32.NewProc("SetForegroundWindow")
+	pRegisterWindowMessageW = user32.NewProc("RegisterWindowMessageW")
 	pGetCursorPos        = user32.NewProc("GetCursorPos")
 	pCreateIconIndirect  = user32.NewProc("CreateIconIndirect")
 	pDestroyIcon         = user32.NewProc("DestroyIcon")
@@ -37,6 +38,7 @@ var (
 	pKillTimer           = user32.NewProc("KillTimer")
 	pLoadCursorW         = user32.NewProc("LoadCursorW")
 	pGetModuleHandleW    = kernel32.NewProc("GetModuleHandleW")
+	pGetUserDefaultUILanguage = kernel32.NewProc("GetUserDefaultUILanguage")
 	pCreateMutexW        = kernel32.NewProc("CreateMutexW")
 	pShellNotifyIconW    = shell32.NewProc("Shell_NotifyIconW")
 	pShellExecuteW       = shell32.NewProc("ShellExecuteW")
@@ -54,6 +56,7 @@ var (
 
 const (
 	wmDestroy   = 0x0002
+	wmClose     = 0x0010
 	wmCommand   = 0x0111
 	wmTimer     = 0x0113
 	wmApp       = 0x8000
