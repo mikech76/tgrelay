@@ -15,7 +15,7 @@ import (
 const (
 	configName = "tgrelay.txt"
 	repoURL    = "https://github.com/mikech76/tgrelay"
-	version    = "1.6"
+	version    = "1.6.1"
 )
 
 var appContext, cancelApp = context.WithCancel(context.Background())

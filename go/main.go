@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -44,17 +43,26 @@ func runServer(configPath string, headless bool) {
 	}
 	path = createdPath
 
+	// При перезапуске из меню предыдущая копия ещё держит порты. Ждём её
+	// завершения до того, как открывать свои, иначе новый экземпляр падает
+	// с «address already in use», а старый уже вышел.
+	if !takeOver(headless) {
+		return
+	}
+
 	initLog(filepath.Join(filepath.Dir(path), "tgrelay.log"))
 
 	app, err := NewApp(path)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logf("ошибка конфига: %v", err)
+		showError(err.Error())
 		os.Exit(1)
 	}
 	appInstance = app
 
 	if err := app.Start(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logf("ошибка запуска: %v", err)
+		showError(err.Error())
 		os.Exit(1)
 	}
 	defer app.Stop()

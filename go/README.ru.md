@@ -166,6 +166,7 @@ tgrelay run             # то же самое, явно
 tgrelay status          # pid, режим, порты, uptime, соединения, трафик, пользователи
 tgrelay links           # ссылка для каждого ключа MTProto и каждой учётной записи SOCKS5
 tgrelay reload          # перечитать конфиг и перезапустить прокси и порты на месте
+tgrelay restart         # полный перезапуск программы (вместе с треем)
 tgrelay stop            # аккуратно остановить
 tgrelay log -n 50       # последние строки tgrelay.log
 tgrelay log -f          # следить за логом (как tail -f)

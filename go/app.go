@@ -241,6 +241,10 @@ const ctlName = "tgrelay.ctl"
 // чтобы иконка исчезла и ресурсы освободились штатно. nil — интерфейса нет.
 var quitUI func() bool
 
+// uiRestart — перезапуск с новым процессом (Windows). nil — платформа
+// перезапускается средствами службы (systemd) или просто завершается.
+var uiRestart func()
+
 func (a *App) startControl() {
 	path := filepath.Join(filepath.Dir(a.Path), ctlName)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -296,6 +300,17 @@ func (a *App) serveControl(listener net.Listener, token string) {
 					time.Sleep(200 * time.Millisecond)
 					if quitUI != nil && quitUI() {
 						return // трей закроется сам и снимет иконку
+					}
+					a.Stop()
+					os.Exit(0)
+				}()
+			case "restart":
+				fmt.Fprintln(c, "restarting")
+				go func() {
+					time.Sleep(200 * time.Millisecond)
+					if uiRestart != nil {
+						uiRestart()
+						return
 					}
 					a.Stop()
 					os.Exit(0)

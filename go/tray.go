@@ -38,6 +38,7 @@ func newTray(app *App) *tray {
 	}
 	t.init()
 	quitUI = t.requestClose
+	uiRestart = restartSelf
 	return t
 }
 
@@ -470,11 +471,22 @@ func restartSelf() {
 	time.Sleep(500 * time.Millisecond)
 	exe, err := os.Executable()
 	if err != nil {
+		logf("перезапуск: не найден exe: %v", err)
+		restarting.Store(false)
 		return
 	}
 	env := append(os.Environ(), "TGRELAY_HANDOFF=1")
 	cmd := &execSpec{path: exe, env: env, dir: filepath.Dir(exe)}
-	startDetached(cmd)
+	if err := startDetached(cmd); err != nil {
+		logf("перезапуск не удался: %v", err)
+		messageBox("Restart: "+err.Error(), "tgrelay", 0x10)
+		restarting.Store(false)
+		return
+	}
+	logf("перезапуск: запущена новая копия")
+	if activeTray != nil {
+		activeTray.removeIcon()
+	}
 	os.Exit(0)
 }
 

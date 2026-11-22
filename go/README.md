@@ -165,6 +165,7 @@ tgrelay run             # same, explicit
 tgrelay status          # pid, mode, ports, uptime, connections, traffic, users
 tgrelay links           # a Telegram link for every MTProto key and SOCKS5 account
 tgrelay reload          # re-read the config, restart proxies and ports in place
+tgrelay restart         # full restart of the program (tray included)
 tgrelay stop            # graceful stop
 tgrelay log -n 50       # last lines of tgrelay.log
 tgrelay log -f          # follow the log (like tail -f)

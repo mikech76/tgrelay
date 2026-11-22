@@ -50,9 +50,9 @@ type execSpec struct {
 	dir  string
 }
 
-func startDetached(spec *execSpec) {
+func startDetached(spec *execSpec) error {
 	cmd := exec.Command(spec.path)
 	cmd.Env = spec.env
 	cmd.Dir = spec.dir
-	_ = cmd.Start()
+	return cmd.Start()
 }

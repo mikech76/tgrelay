@@ -9,9 +9,14 @@ import (
 	"syscall"
 )
 
+// takeOver: на Linux единственный экземпляр не ограничиваем.
+func takeOver(headless bool) bool { return true }
+
+// showError сообщает об ошибке в консоль (на Windows — окном).
+func showError(text string) { fmt.Fprintln(os.Stderr, text) }
+
 // runUI без трея: печатаем ссылки и ждём SIGINT/SIGTERM.
-func runUI(app *App, headless bool) {
-	fmt.Println("tgrelay " + version)
+func runUI(app *App, headless bool) {	fmt.Println("tgrelay " + version)
 	fmt.Print(app.Links())
 	fmt.Println()
 

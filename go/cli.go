@@ -76,6 +76,15 @@ func runCLI(args []string, configPath string) bool {
 		fmt.Print(out)
 		return true
 
+	case "restart":
+		out, err := controlClient(ctlPath, "restart")
+		if err != nil {
+			fmt.Println("ошибка:", err)
+			return true
+		}
+		fmt.Print(out)
+		return true
+
 	case "log":
 		tailLog(logPath, args[1:])
 		return true
@@ -115,6 +124,7 @@ func printHelp() {
   status           состояние работающего экземпляра
   links            ссылки для Telegram
   reload           перечитать конфиг и перезапустить прокси на месте
+  restart          перезапустить программу (Windows — с треем)
   stop             остановить работающий экземпляр
   log [-f] [-n N]  показать лог (по умолчанию 40 строк, -f — следить)
   config           путь к конфигу; config edit — открыть в редакторе

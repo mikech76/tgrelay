@@ -14,7 +14,7 @@ import (
 
 // runUI запускает трей (или ждёт сигнала в режиме --headless).
 func runUI(app *App, headless bool) {
-	if headless || !singleInstance() {
+	if headless {
 		printLinks(app)
 		select {}
 	}
@@ -39,6 +39,21 @@ func printLinks(app *App) {
 }
 
 var lockHandle uintptr
+
+// takeOver занимает слот единственного экземпляра до запуска серверов.
+// При перезапуске из меню новая копия ждёт, пока старая отпустит порты.
+func takeOver(headless bool) bool {
+	if headless {
+		return true
+	}
+	return singleInstance()
+}
+
+// showError показывает ошибку окном: у GUI-сборки нет консоли, и без этого
+// неудачный запуск (например, битый конфиг) выглядел бы как «программа закрылась».
+func showError(text string) {
+	messageBox(text, "tgrelay", 0x10)
+}
 
 // singleInstance: один экземпляр на сессию; при TGRELAY_HANDOFF=1 ждём до 15 с.
 func singleInstance() bool {
